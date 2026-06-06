@@ -172,9 +172,8 @@ void TicTacToeWindow::endGame() {
   }
 
   if (m_winLine[0] >= 0) {
-    // Win - draw line and close after 5s
+    // Win - draw line
     update();
-    QTimer::singleShot(5000, this, &QWidget::close);
   } else {
     // Draw - flash 5 times (on 300ms, off 300ms)
     m_flashCount = 0;
@@ -186,7 +185,6 @@ void TicTacToeWindow::endGame() {
       if (!m_flashVisible) m_flashCount++;
       if (m_flashCount >= 5) {
         timer->stop();
-        close();
       }
     });
     timer->start(300);

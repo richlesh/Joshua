@@ -238,6 +238,7 @@ void FourAcrossWindow::nextTurn() {
 
 void FourAcrossWindow::computerMove() {
   if (m_gameOver) return;
+  setCursor(Qt::WaitCursor);
 
   // Determine which piece is moving
   int8_t movingPiece;
@@ -284,6 +285,7 @@ void FourAcrossWindow::computerMove() {
   if (!topCols.empty())
     bestCol = topCols[rand() % topCols.size()];
 
+  unsetCursor();
   if (bestCol >= 0) dropPiece(bestCol, movingPiece);
 }
 
@@ -455,6 +457,7 @@ void FourAcrossWindow::endDraw() {
 void FourAcrossWindow::computeSuggestion() {
   m_suggestedCol = -1;
   if (!m_suggest || !m_userTurn || m_gameOver) return;
+  setCursor(Qt::WaitCursor);
 
   int bestCol = -1;
   int bestScore = std::numeric_limits<int>::min();
@@ -471,4 +474,5 @@ void FourAcrossWindow::computeSuggestion() {
     }
   }
   m_suggestedCol = bestCol;
+  unsetCursor();
 }

@@ -500,6 +500,7 @@ bool CheckersWindow::hasJumps(bool forDark) {
 
 void CheckersWindow::computerMove() {
   if (m_gameOver) return;
+  setCursor(Qt::WaitCursor);
 
   bool movingDark;
   if (m_autoPlay) {
@@ -548,6 +549,7 @@ void CheckersWindow::computerMove() {
   if (!topIndices.empty())
     bestMove = moves[topIndices[rand() % topIndices.size()]];
 
+  unsetCursor();
   startAnimation(bestMove);
 }
 
@@ -761,6 +763,7 @@ void CheckersWindow::computeSuggestion() {
   m_suggestedFrom = -1;
   m_suggestedTo = -1;
   if (!m_suggest || !m_userTurn || m_gameOver) return;
+  setCursor(Qt::WaitCursor);
 
   bool userIsDark = !m_userIsLight;
   auto moves = generateMoves(userIsDark);
@@ -781,4 +784,5 @@ void CheckersWindow::computeSuggestion() {
   }
   m_suggestedFrom = bestMove.from;
   m_suggestedTo = bestMove.to;
+  unsetCursor();
 }
