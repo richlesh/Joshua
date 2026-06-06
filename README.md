@@ -1,0 +1,141 @@
+# Joshua v1.1.0
+
+A WarGames-inspired AI terminal game application.
+
+*by Richard Lesh*
+
+---
+
+## Features
+
+- Classic green-on-black terminal interface (WarGames WOPR style)
+- Tic-Tac-Toe with unbeatable minimax AI
+- Checkers with minimax + alpha-beta pruning AI
+  - Adjustable difficulty (Really Easy, Easy, Medium, Hard)
+  - Drag-and-drop piece movement
+  - Animated computer moves (including multi-jump sequences)
+  - Computer suggestions highlighting best move
+  - Computer-vs-computer spectator mode with configurable levels
+  - Draw detection (no-progress and position repetition)
+- Configurable terminal font size, font color, and background color
+- Text-to-speech for all game prompts (macOS/Windows/Linux)
+- Audio on/off setting
+- JetBrains Mono NL font with Courier fallback
+- Splash screen with donation link
+- About dialog
+- License key validation (HMAC-SHA256 based)
+- Window size persistence
+- Settings saved to `~/.joshua-settings.json`
+- macOS, Windows, and Linux builds via GitHub Actions
+- Code signing and notarization for macOS
+- Azure Artifact Signing for Windows
+
+---
+
+## Installation
+
+### Prerequisites
+- [Qt 6](https://www.qt.io) (6.x)
+- CMake 3.21+
+- C++17 compiler
+
+### Setup
+```bash
+git clone https://github.com/richlesh/Joshua.git
+cd Joshua
+cmake -S . -B build -DCMAKE_PREFIX_PATH=$(brew --prefix qt@6)
+cmake --build build
+```
+
+### Running
+```bash
+./build/Joshua.app/Contents/MacOS/Joshua   # macOS
+./build/Joshua                              # Linux
+build\Release\Joshua.exe                    # Windows
+```
+
+---
+
+## Building Distribution Packages
+
+Distribution builds are handled via GitHub Actions workflows:
+
+- `build-cpp-mac.yml` — macOS DMG (x64 + arm64), signed and notarized
+- `build-cpp-windows.yml` — Windows NSIS installer (x64 + arm64), Azure signed
+- `build-cpp-linux.yml` — Linux DEB + RPM (x64 + arm64)
+
+Trigger manually with a release tag via `workflow_dispatch`.
+
+---
+
+## Project Structure
+
+```
+Joshua/
+├── CMakeLists.txt           # Build configuration
+├── Info.plist.in            # macOS bundle info
+├── src/
+│   ├── main.cpp             # Entry point
+│   ├── MainWindow.cpp/h     # Terminal UI and game menu
+│   ├── TicTacToeWindow.cpp/h # Tic-Tac-Toe game
+│   ├── CheckersWindow.cpp/h  # Checkers game with AI
+│   ├── Settings.cpp/h       # Settings persistence
+│   ├── SettingsDialog.cpp/h  # Settings UI
+│   ├── LicenseDialog.cpp/h   # License key entry
+│   ├── LicenseValidator.cpp/h # License validation
+│   ├── License.cpp/h         # License salt
+│   ├── SplashScreen.cpp/h    # Splash screen
+│   ├── AboutDialog.cpp/h     # About dialog
+│   ├── BouncingProgressBar.cpp/h # Progress bar widget
+│   └── Utilities.cpp/h       # Helper functions
+├── ui/                       # Qt Designer UI files
+├── resources/
+│   ├── icons/               # App icons (png, icns, ico)
+│   ├── fonts/               # JetBrains Mono NL TTF
+│   ├── resources.qrc        # Qt resource file
+│   ├── app_icon.rc          # Windows icon resource
+│   ├── joshua.desktop       # Linux desktop entry
+│   └── joshua-mime.xml      # MIME type definitions
+├── .github/workflows/       # CI/CD workflows
+└── generate_license_key.py  # License key generator
+```
+
+---
+
+## Games
+
+### Tic-Tac-Toe
+Classic 3×3 grid. The AI uses full minimax search and is unbeatable.
+
+### Checkers
+American checkers (8×8 board) with:
+- Minimax + alpha-beta pruning (depth 1–9)
+- Mandatory jumps and multi-jump sequences
+- King promotion (turn ends on promotion)
+- Drag-and-drop interface
+- Optional move suggestions (depth 9 analysis)
+- Computer-vs-computer mode with independent difficulty per side
+
+---
+
+## License Key
+
+Generate a license key for a user:
+```bash
+python3 generate_license_key.py user@example.com
+```
+
+---
+
+## Tech Stack
+
+- [Qt 6](https://www.qt.io) — GUI framework
+- C++17
+- CMake — build system
+- GitHub Actions — CI/CD
+
+---
+
+## License
+
+GPL 3.0
