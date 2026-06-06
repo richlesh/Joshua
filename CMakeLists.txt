@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.21)
-project(Joshua VERSION 1.1.0 LANGUAGES CXX)
+project(Joshua VERSION 1.2.0 LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -15,6 +15,7 @@ set(SOURCES
   src/MainWindow.cpp
   src/TicTacToeWindow.cpp
   src/CheckersWindow.cpp
+  src/FourAcrossWindow.cpp
   src/BouncingProgressBar.cpp
   src/SettingsDialog.cpp
   src/LicenseDialog.cpp
@@ -30,6 +31,7 @@ set(HEADERS
   src/MainWindow.h
   src/TicTacToeWindow.h
   src/CheckersWindow.h
+  src/FourAcrossWindow.h
   src/BouncingProgressBar.h
   src/SettingsDialog.h
   src/LicenseDialog.h

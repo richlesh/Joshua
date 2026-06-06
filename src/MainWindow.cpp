@@ -6,6 +6,7 @@
 #include "Settings.h"
 #include "TicTacToeWindow.h"
 #include "CheckersWindow.h"
+#include "FourAcrossWindow.h"
 #include "SettingsDialog.h"
 #include "AboutDialog.h"
 #include "LicenseDialog.h"
@@ -173,7 +174,7 @@ void MainWindow::handleInput(const QString &line) {
       QTimer::singleShot(5000, qApp, &QApplication::quit);
     } else if (yesWords.contains(input)) {
       m_terminal->printText("\nGame List:\n");
-      m_terminal->printText("1. Tic-Tac-Toe\n2. Checkers\n3. Chess\n4. Go\n5. Blackjack\n6. Poker\n7. Global Thermonuclear War\n0. Quit\n\n");
+      m_terminal->printText("1. Tic-Tac-Toe\n2. Checkers\n3. Four Across\n4. Chess\n5. Go\n6. Blackjack\n7. Poker\n8. Global Thermonuclear War\n0. Quit\n\n");
       m_terminal->showPrompt("Which game would you like to play? ");
       speak("Which game would you like to play?");
       m_state = GameMenu;
@@ -198,17 +199,21 @@ void MainWindow::handleInput(const QString &line) {
       m_terminal->printText("Do you want to go first? ");
       speak("Do you want to go first?");
       m_state = CheckersGoFirstPrompt;
-    } else if (ok && choice == 7) {
+    } else if (ok && choice == 3) {
+      m_terminal->printText("Do you want to go first? ");
+      speak("Do you want to go first?");
+      m_state = C4GoFirstPrompt;
+    } else if (ok && choice == 8) {
       m_terminal->printText("Nuclear war. A strange game, the only winning move is not to play.\nHow about a nice game of chess?\n\n");
       speak("Nuclear war. A strange game, the only winning move is not to play. How about a nice game of chess?");
       m_terminal->showPrompt("Which game would you like to play? ");
-    } else if (ok && choice >= 3 && choice <= 6) {
+    } else if (ok && choice >= 4 && choice <= 7) {
       m_terminal->printText("That game is not currently available.\n\n");
       speak("That game is not currently available.");
       m_terminal->showPrompt("Which game would you like to play? ");
     } else {
       m_terminal->printText("\nGame List:\n");
-      m_terminal->printText("1. Tic-Tac-Toe\n2. Checkers\n3. Chess\n4. Go\n5. Blackjack\n6. Poker\n7. Global Thermonuclear War\n0. Quit\n\n");
+      m_terminal->printText("1. Tic-Tac-Toe\n2. Checkers\n3. Four Across\n4. Chess\n5. Go\n6. Blackjack\n7. Poker\n8. Global Thermonuclear War\n0. Quit\n\n");
       m_terminal->showPrompt("Which game would you like to play? ");
     }
     break;
@@ -295,6 +300,82 @@ void MainWindow::handleInput(const QString &line) {
     int level = line.trimmed().toInt(&ok);
     if (ok && level >= 1 && level <= 9) {
       auto *game = new CheckersWindow(m_checkersUserFirst, m_checkersDepth, level, nullptr);
+      game->setAttribute(Qt::WA_DeleteOnClose);
+      game->show();
+      m_terminal->printText("\n");
+      m_terminal->showPrompt("Which game would you like to play? ");
+      m_state = GameMenu;
+    } else {
+      m_terminal->printText("Play level for your player (1-9)? ");
+    }
+    break;
+  }
+
+  case C4GoFirstPrompt:
+    if (yesWords.contains(input) || noWords.contains(input)) {
+      m_c4UserFirst = yesWords.contains(input);
+      m_terminal->printText("Difficulty (Easy, Medium, Hard)? ");
+      speak("Difficulty?");
+      m_state = C4DifficultyPrompt;
+    } else {
+      m_terminal->printText("Do you want to go first? ");
+      speak("Do you want to go first?");
+    }
+    break;
+
+  case C4DifficultyPrompt: {
+    int depth = 0;
+    if (input == "easy" || input == "e") depth = 4;
+    else if (input == "medium" || input == "m") depth = 6;
+    else if (input == "hard" || input == "h") depth = 8;
+    if (depth > 0) {
+      m_c4Depth = depth;
+      m_terminal->printText("Do you want the computer to play for you? ");
+      speak("Do you want the computer to play for you?");
+      m_state = C4AutoPlayPrompt;
+    } else {
+      m_terminal->printText("Difficulty (Easy, Medium, Hard)? ");
+    }
+    break;
+  }
+
+  case C4AutoPlayPrompt:
+    if (yesWords.contains(input) || noWords.contains(input)) {
+      if (yesWords.contains(input)) {
+        m_terminal->printText("Play level for your player (1-9)? ");
+        speak("Play level for your player?");
+        m_state = C4AutoPlayLevel;
+      } else {
+        m_terminal->printText("Do you want computer suggestions? ");
+        speak("Do you want computer suggestions?");
+        m_state = C4SuggestPrompt;
+      }
+    } else {
+      m_terminal->printText("Do you want the computer to play for you? ");
+      speak("Do you want the computer to play for you?");
+    }
+    break;
+
+  case C4SuggestPrompt:
+    if (yesWords.contains(input) || noWords.contains(input)) {
+      m_c4Suggest = yesWords.contains(input);
+      auto *game = new FourAcrossWindow(m_c4UserFirst, m_c4Depth, m_c4Suggest, nullptr);
+      game->setAttribute(Qt::WA_DeleteOnClose);
+      game->show();
+      m_terminal->printText("\n");
+      m_terminal->showPrompt("Which game would you like to play? ");
+      m_state = GameMenu;
+    } else {
+      m_terminal->printText("Do you want computer suggestions? ");
+      speak("Do you want computer suggestions?");
+    }
+    break;
+
+  case C4AutoPlayLevel: {
+    bool ok;
+    int level = line.trimmed().toInt(&ok);
+    if (ok && level >= 1 && level <= 9) {
+      auto *game = new FourAcrossWindow(m_c4UserFirst, m_c4Depth, level, nullptr);
       game->setAttribute(Qt::WA_DeleteOnClose);
       game->show();
       m_terminal->printText("\n");

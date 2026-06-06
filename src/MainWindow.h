@@ -44,7 +44,9 @@ protected:
 
 private:
   void applySettings();
-  enum State { LogonPrompt, GreetingPrompt, GameMenu, GoFirstPrompt, CheckersGoFirstPrompt, CheckersDifficultyPrompt, CheckersSuggestPrompt, CheckersAutoPlayPrompt, CheckersAutoPlayLevel };
+  enum State { LogonPrompt, GreetingPrompt, GameMenu, GoFirstPrompt,
+    CheckersGoFirstPrompt, CheckersDifficultyPrompt, CheckersAutoPlayPrompt, CheckersSuggestPrompt, CheckersAutoPlayLevel,
+    C4GoFirstPrompt, C4DifficultyPrompt, C4AutoPlayPrompt, C4SuggestPrompt, C4AutoPlayLevel };
 
   Ui::MainWindow *ui;
   Settings &m_settings;
@@ -54,6 +56,9 @@ private:
   bool m_checkersUserFirst = true;
   bool m_checkersSuggest = false;
   int m_checkersDepth = 5;
+  bool m_c4UserFirst = true;
+  bool m_c4Suggest = false;
+  int m_c4Depth = 5;
 };
 
 #endif // MAINWINDOW_H

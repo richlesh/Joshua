@@ -1,4 +1,4 @@
-# Joshua v1.1.0
+# Joshua v1.2.0
 
 A WarGames-inspired AI terminal game application.
 
@@ -17,6 +17,11 @@ A WarGames-inspired AI terminal game application.
   - Computer suggestions highlighting best move
   - Computer-vs-computer spectator mode with configurable levels
   - Draw detection (no-progress and position repetition)
+- Four Across with minimax + alpha-beta pruning AI
+  - Adjustable difficulty (Easy, Medium, Hard)
+  - Hover-to-select column with animated piece drop
+  - Computer suggestions highlighting best column
+  - Computer-vs-computer spectator mode with configurable levels
 - Configurable terminal font size, font color, and background color
 - Text-to-speech for all game prompts (macOS/Windows/Linux)
 - Audio on/off setting
@@ -79,6 +84,7 @@ Joshua/
 │   ├── MainWindow.cpp/h     # Terminal UI and game menu
 │   ├── TicTacToeWindow.cpp/h # Tic-Tac-Toe game
 │   ├── CheckersWindow.cpp/h  # Checkers game with AI
+│   ├── FourAcrossWindow.cpp/h # Four Across game with AI
 │   ├── Settings.cpp/h       # Settings persistence
 │   ├── SettingsDialog.cpp/h  # Settings UI
 │   ├── LicenseDialog.cpp/h   # License key entry
@@ -113,6 +119,13 @@ American checkers (8×8 board) with:
 - Mandatory jumps and multi-jump sequences
 - King promotion (turn ends on promotion)
 - Drag-and-drop interface
+- Optional move suggestions (depth 9 analysis)
+- Computer-vs-computer mode with independent difficulty per side
+
+### Four Across
+Classic 7×6 vertical drop game with:
+- Minimax + alpha-beta pruning (depth 4–9)
+- Hover-to-select column with animated piece drop
 - Optional move suggestions (depth 9 analysis)
 - Computer-vs-computer mode with independent difficulty per side
 
