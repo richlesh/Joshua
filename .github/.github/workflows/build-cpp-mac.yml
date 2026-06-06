@@ -1,0 +1,182 @@
+name: Build and Release C++ macOS
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag to upload assets to (e.g. v2.0.0)"
+        required: true
+
+jobs:
+  build-cpp-mac:
+    runs-on: macos-latest
+    permissions:
+      contents: write
+    strategy:
+      matrix:
+        arch: [x64, arm64]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Extract version from tag
+        id: version
+        run: echo "version=${TAG#v}" >> $GITHUB_OUTPUT
+        env:
+          TAG: ${{ github.event.inputs.tag }}
+
+      - name: Install Qt6 and libarchive
+        run: |
+          if [ "${{ matrix.arch }}" = "x64" ]; then
+            # Install x86_64 Homebrew and libraries for cross-compilation
+            arch -x86_64 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
+            arch -x86_64 /usr/local/bin/brew install qt@6 libarchive cmake ninja
+          else
+            brew install qt@6 libarchive cmake ninja
+          fi
+
+      - name: Import Developer ID certificate
+        id: cert
+        env:
+          CERTIFICATE_BASE64: ${{ secrets.APPLE_CERTIFICATE_BASE64 }}
+          CERTIFICATE_PASSWORD: ${{ secrets.APPLE_CERTIFICATE_PASSWORD }}
+        run: |
+          KEYCHAIN_PASSWORD=build-keychain-password
+          security create-keychain -p "$KEYCHAIN_PASSWORD" $RUNNER_TEMP/build.keychain
+          security set-keychain-settings -lut 21600 $RUNNER_TEMP/build.keychain
+          security unlock-keychain -p "$KEYCHAIN_PASSWORD" $RUNNER_TEMP/build.keychain
+          echo "$CERTIFICATE_BASE64" | base64 --decode -o $RUNNER_TEMP/cert.p12
+          security import $RUNNER_TEMP/cert.p12 -k $RUNNER_TEMP/build.keychain -P "$CERTIFICATE_PASSWORD" -T /usr/bin/codesign
+          security list-keychain -d user -s $RUNNER_TEMP/build.keychain
+          security set-key-partition-list -S apple-tool:,apple: -s -k "$KEYCHAIN_PASSWORD" $RUNNER_TEMP/build.keychain
+
+          # Extract signing identity hash
+          IDENTITY_HASH=$(security find-identity -v -p codesigning $RUNNER_TEMP/build.keychain | head -1 | awk '{print $2}')
+          echo "hash=$IDENTITY_HASH" >> $GITHUB_OUTPUT
+          echo "Found identity: $IDENTITY_HASH"
+
+      - name: Inject license salt
+        run: |
+          cat > cpp/src/License.cpp << EOF
+          #include "License.h"
+
+          const QByteArray LICENSE_SALT = "${{ secrets.LICENSE_SALT }}";
+          EOF
+
+      - name: Update version in CMakeLists.txt
+        run: sed -i '' "s/project(Joshua VERSION [0-9.]*/project(Joshua VERSION ${{ steps.version.outputs.version }}/" cpp/CMakeLists.txt
+
+      - name: Configure and build
+        run: |
+          if [ "${{ matrix.arch }}" = "x64" ]; then
+            QT_PREFIX="/usr/local/opt/qt@6"
+            ARCHIVE_PREFIX="/usr/local/opt/libarchive"
+          else
+            QT_PREFIX="$(brew --prefix qt@6)"
+            ARCHIVE_PREFIX="$(brew --prefix libarchive)"
+          fi
+          CMAKE_ARCH=${{ matrix.arch == 'arm64' && 'arm64' || 'x86_64' }}
+          cmake -S cpp -B build -G Ninja \
+            -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_OSX_ARCHITECTURES=${CMAKE_ARCH} \
+            -DCMAKE_PREFIX_PATH="${QT_PREFIX};${ARCHIVE_PREFIX}"
+          cmake --build build
+
+      - name: Deploy, sign, and create DMG
+        env:
+          APPLE_TEAM_ID: MMZ3Y97NTP
+          IDENTITY: ${{ steps.cert.outputs.hash }}
+        run: |
+          if [ "${{ matrix.arch }}" = "x64" ]; then
+            MACDEPLOYQT="/usr/local/opt/qt@6/bin/macdeployqt"
+          else
+            MACDEPLOYQT="$(brew --prefix qt@6)/bin/macdeployqt"
+          fi
+          ARCH=${{ matrix.arch }}
+          VERSION=${{ steps.version.outputs.version }}
+
+          # Deploy Qt frameworks (skip plugins with unresolvable dependencies)
+          "$MACDEPLOYQT" build/Joshua.app \
+            -always-overwrite \
+            -no-strip
+
+          # Remove plugins that reference unavailable Qt modules
+          rm -rf build/Joshua.app/Contents/PlugIns/virtualkeyboard
+          rm -rf build/Joshua.app/Contents/PlugIns/imageformats/libqpdf.dylib
+          rm -rf build/Joshua.app/Contents/PlugIns/imageformats/libqsvg.dylib
+          rm -rf build/Joshua.app/Contents/PlugIns/imageformats/libqwebp.dylib
+
+          # Sign all bundled libraries and frameworks with hardened runtime
+          find build/Joshua.app/Contents/Frameworks -type f \( -name "*.dylib" -o -perm +111 \) | while read f; do
+            codesign --force --options runtime --sign "$IDENTITY" --timestamp "$f" 2>/dev/null || true
+          done
+          find build/Joshua.app/Contents/PlugIns -type f -name "*.dylib" | while read f; do
+            codesign --force --options runtime --sign "$IDENTITY" --timestamp "$f" 2>/dev/null || true
+          done
+          codesign --force --deep --options runtime --sign "$IDENTITY" --timestamp build/Joshua.app
+
+          # Stage DMG contents
+          mkdir -p dist dmg_stage
+          cp -R build/Joshua.app dmg_stage/
+          ln -s /Applications dmg_stage/Applications
+
+          # Create read-write DMG
+          hdiutil create -volname "Joshua" \
+            -srcfolder dmg_stage \
+            -ov -format UDRW \
+            "dist/Joshua-rw.dmg"
+
+          # Mount and customize
+          hdiutil attach "dist/Joshua-rw.dmg" -mountpoint /Volumes/Joshua
+          cp cpp/resources/icons/app_icon.icns /Volumes/Joshua/.VolumeIcon.icns
+          SetFile -a C /Volumes/Joshua
+
+          # Set Finder window layout
+          osascript <<'EOF'
+          tell application "Finder"
+            tell disk "Joshua"
+              open
+              set current view of container window to icon view
+              set toolbar visible of container window to false
+              set statusbar visible of container window to false
+              set bounds of container window to {100, 100, 640, 400}
+              set theViewOptions to icon view options of container window
+              set arrangement of theViewOptions to not arranged
+              set icon size of theViewOptions to 80
+              set position of item "Joshua.app" of container window to {130, 150}
+              set position of item "Applications" of container window to {410, 150}
+              close
+            end tell
+          end tell
+          EOF
+
+          hdiutil detach /Volumes/Joshua
+
+          # Convert to compressed format
+          hdiutil convert "dist/Joshua-rw.dmg" \
+            -format UDZO -o "dist/Joshua-${VERSION}-${ARCH}.dmg"
+          rm "dist/Joshua-rw.dmg"
+          codesign --force --sign "$IDENTITY" "dist/Joshua-${VERSION}-${ARCH}.dmg"
+
+      - name: Notarize DMG
+        env:
+          APPLE_API_KEY_ID: ${{ secrets.APPLE_API_KEY_ID }}
+          APPLE_API_ISSUER: ${{ secrets.APPLE_API_ISSUER }}
+          APPLE_API_KEY: ${{ secrets.APPLE_API_KEY }}
+        run: |
+          KEY_FILE=$RUNNER_TEMP/AuthKey_${APPLE_API_KEY_ID}.p8
+          echo "$APPLE_API_KEY" > "$KEY_FILE"
+          xcrun notarytool submit dist/*.dmg \
+            --key "$KEY_FILE" \
+            --key-id "$APPLE_API_KEY_ID" \
+            --issuer "$APPLE_API_ISSUER" \
+            --wait
+          xcrun stapler staple dist/*.dmg
+
+      - name: Upload DMG to release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release upload ${{ github.event.inputs.tag }} \
+            dist/*.dmg --clobber

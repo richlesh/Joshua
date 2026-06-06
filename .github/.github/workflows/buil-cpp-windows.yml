@@ -1,0 +1,160 @@
+name: Build and Release C++ Windows
+
+on:
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Release tag to upload assets to (e.g. v2.0.0)"
+        required: true
+
+jobs:
+  build-cpp-windows:
+    runs-on: windows-latest
+    permissions:
+      id-token: write
+      contents: write
+    strategy:
+      matrix:
+        arch: [x64, arm64]
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+
+      - name: Extract version from tag
+        id: version
+        run: |
+          $ver = "${{ github.event.inputs.tag }}" -replace '^v', ''
+          echo "version=$ver" >> $env:GITHUB_OUTPUT
+        shell: powershell
+
+      - name: Install Qt6
+        uses: jurplel/install-qt-action@v4
+        with:
+          version: '6.8.3'
+          arch: ${{ matrix.arch == 'arm64' && 'win64_msvc2022_arm64_cross_compiled' || 'win64_msvc2022_64' }}
+          cache: true
+
+      - name: Install libarchive via vcpkg
+        run: vcpkg install libarchive:${{ matrix.arch == 'arm64' && 'arm64-windows' || 'x64-windows' }}
+
+      - name: Inject license salt
+        run: |
+          @"
+          #include "License.h"
+
+          const QByteArray LICENSE_SALT = "${{ secrets.LICENSE_SALT }}";
+          "@ | Set-Content cpp/src/License.cpp
+        shell: powershell
+
+      - name: Update version in CMakeLists.txt
+        run: |
+          (Get-Content cpp/CMakeLists.txt) -replace 'project\(Joshua VERSION [0-9.]+', "project(Joshua VERSION ${{ steps.version.outputs.version }}" | Set-Content cpp/CMakeLists.txt
+        shell: powershell
+
+      - name: Configure and build
+        run: |
+          $cmakeArch = if ("${{ matrix.arch }}" -eq "arm64") { "ARM64" } else { "x64" }
+          cmake -S cpp -B build -G "Visual Studio 17 2022" -A $cmakeArch `
+            -DCMAKE_BUILD_TYPE=Release `
+            -DCMAKE_PREFIX_PATH="$env:Qt6_DIR/.." `
+            -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake" `
+            -DVCPKG_TARGET_TRIPLET="${{ matrix.arch == 'arm64' && 'arm64-windows' || 'x64-windows' }}"
+          cmake --build build --config Release
+        shell: powershell
+
+      - name: Deploy Qt dependencies
+        if: matrix.arch == 'x64'
+        run: windeployqt build/Release/Joshua.exe
+        shell: cmd
+
+      - name: Deploy Qt dependencies (ARM64)
+        if: matrix.arch == 'arm64'
+        run: |
+          # windeployqt from cross-compiled Qt can't run on x64, copy DLLs manually
+          $qtRoot = "$env:QT_ROOT_DIR"
+          Copy-Item "$qtRoot/bin/Qt6Core.dll" build/Release/
+          Copy-Item "$qtRoot/bin/Qt6Gui.dll" build/Release/
+          Copy-Item "$qtRoot/bin/Qt6Widgets.dll" build/Release/
+          Copy-Item "$qtRoot/plugins/platforms" build/Release/platforms -Recurse
+          Copy-Item "$qtRoot/plugins/styles" build/Release/styles -Recurse -ErrorAction SilentlyContinue
+        shell: powershell
+
+      - name: Install NSIS
+        run: |
+          choco install nsis -y
+          echo "C:\Program Files (x86)\NSIS" >> $env:GITHUB_PATH
+        shell: powershell
+
+      - name: Bundle MSVC runtime
+        run: |
+          $vsPath = & "${env:ProgramFiles(x86)}\Microsoft Visual Studio\Installer\vswhere.exe" -latest -property installationPath
+          $redistDir = Get-ChildItem "$vsPath\VC\Redist\MSVC\*\${{ matrix.arch == 'arm64' && 'arm64' || 'x64' }}\Microsoft.VC*.CRT" -Directory | Select-Object -Last 1
+          Copy-Item "$redistDir\vcruntime140.dll" build/Release/
+          Copy-Item "$redistDir\vcruntime140_1.dll" build/Release/ -ErrorAction SilentlyContinue
+          Copy-Item "$redistDir\msvcp140.dll" build/Release/
+          Copy-Item "$redistDir\msvcp140_1.dll" build/Release/ -ErrorAction SilentlyContinue
+          Copy-Item "$redistDir\msvcp140_2.dll" build/Release/ -ErrorAction SilentlyContinue
+        shell: powershell
+
+      - name: Create installer with NSIS
+        run: |
+          $version = "${{ steps.version.outputs.version }}"
+          $arch = "${{ matrix.arch }}"
+          @"
+          !include "MUI2.nsh"
+          Name "Joshua ${version}"
+          OutFile "dist\Joshua-${version}-${arch}-setup.exe"
+          InstallDir "`$PROGRAMFILES\Joshua"
+          RequestExecutionLevel admin
+
+          !insertmacro MUI_PAGE_DIRECTORY
+          !insertmacro MUI_PAGE_INSTFILES
+          !insertmacro MUI_LANGUAGE "English"
+
+          Section
+            SetOutPath "`$INSTDIR"
+            File /r "build\Release\*.*"
+            CreateShortcut "`$DESKTOP\Joshua.lnk" "`$INSTDIR\Joshua.exe"
+            CreateDirectory "`$SMPROGRAMS\Joshua"
+            CreateShortcut "`$SMPROGRAMS\Joshua\Joshua.lnk" "`$INSTDIR\Joshua.exe"
+            WriteUninstaller "`$INSTDIR\uninstall.exe"
+          SectionEnd
+
+          Section "Uninstall"
+            RMDir /r "`$INSTDIR"
+            Delete "`$DESKTOP\Joshua.lnk"
+            RMDir /r "`$SMPROGRAMS\Joshua"
+          SectionEnd
+          "@ | Set-Content installer.nsi
+
+          mkdir dist
+          makensis installer.nsi
+        shell: powershell
+
+      - name: Azure login
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+
+      - name: Sign installer with Azure Artifact Signing
+        uses: azure/artifact-signing-action@v1
+        with:
+          endpoint: ${{ secrets.AZURE_SIGNING_ENDPOINT }}
+          signing-account-name: ${{ secrets.AZURE_SIGNING_ACCOUNT_NAME }}
+          certificate-profile-name: ${{ secrets.AZURE_SIGNING_CERTIFICATE_PROFILE_NAME }}
+          files-folder: ${{ github.workspace }}\dist
+          files-folder-filter: exe
+          file-digest: SHA256
+          timestamp-rfc3161: http://timestamp.acs.microsoft.com
+          timestamp-digest: SHA256
+
+      - name: Upload installer to release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          gh release upload ${{ github.event.inputs.tag }} `
+            (Get-ChildItem dist\*.exe | Select-Object -ExpandProperty FullName) --clobber
+        shell: powershell

@@ -1,0 +1,79 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 200 200" width="100%" height="100%">
+  <defs>
+    <!-- Background Gradient -->
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#1a1f24" />
+      <stop offset="100%" stop-color="#0d0f12" />
+    </linearGradient>
+    
+    <!-- Screen Clipping Path to maintain the slanted perspective -->
+    <clipPath id="screen-clip">
+      <polygon points="40,160 160,160 130,40 70,40" />
+    </clipPath>
+  </defs>
+
+  <!-- App Icon Background -->
+  <rect width="200" height="200" rx="40" fill="url(#bg)" />
+
+  <!-- Base Shadow -->
+  <ellipse cx="100" cy="175" rx="75" ry="8" fill="#000000" opacity="0.6" />
+
+  <!-- Outer WOPR Chassis -->
+  <!-- Main Backing -->
+  <polygon points="25,170 175,170 145,25 55,25" fill="#111317" />
+  
+  <!-- Left Bevel -->
+  <polygon points="25,170 40,160 70,40 55,25" fill="#3a414a" />
+  
+  <!-- Right Bevel -->
+  <polygon points="175,170 160,160 130,40 145,25" fill="#0a0c0f" />
+  
+  <!-- Top Bevel -->
+  <polygon points="55,25 145,25 130,40 70,40" fill="#4a535e" />
+  
+  <!-- Bottom Lip -->
+  <polygon points="25,170 175,170 160,160 40,160" fill="#050608" />
+
+  <!-- Inner Screen/Panel Background -->
+  <polygon points="40,160 160,160 130,40 70,40" fill="#08090a" />
+
+  <!-- LED Light Banks (Clipped to the inner screen) -->
+  <g clip-path="url(#screen-clip)">
+    
+    <!-- Glowing LED Rows -->
+    <g stroke-width="5" stroke-dasharray="6,4">
+      <line x1="30" y1="46" x2="170" y2="46" stroke="#ff3b30" />
+      <line x1="30" y1="54" x2="170" y2="54" stroke="#ff3b30" />
+      <line x1="30" y1="62" x2="170" y2="62" stroke="#ffcc00" />
+      <line x1="30" y1="70" x2="170" y2="70" stroke="#ff3b30" />
+      <line x1="30" y1="78" x2="170" y2="78" stroke="#ff9500" />
+      <line x1="30" y1="86" x2="170" y2="86" stroke="#ff3b30" />
+      <line x1="30" y1="94" x2="170" y2="94" stroke="#ff3b30" />
+      <line x1="30" y1="102" x2="170" y2="102" stroke="#ffcc00" />
+      <line x1="30" y1="110" x2="170" y2="110" stroke="#ff3b30" />
+      <line x1="30" y1="118" x2="170" y2="118" stroke="#ff9500" />
+      <line x1="30" y1="126" x2="170" y2="126" stroke="#ff3b30" />
+      <line x1="30" y1="134" x2="170" y2="134" stroke="#ffcc00" />
+      <line x1="30" y1="142" x2="170" y2="142" stroke="#ff3b30" />
+      <line x1="30" y1="150" x2="170" y2="150" stroke="#ff3b30" />
+      <line x1="30" y1="158" x2="170" y2="158" stroke="#ffcc00" />
+    </g>
+
+    <!-- Dark overlays to simulate blinking/inactive computer panels -->
+    <rect x="40" y="40" width="40" height="20" fill="#000" opacity="0.8" />
+    <rect x="110" y="65" width="45" height="15" fill="#000" opacity="0.85" />
+    <rect x="70" y="90" width="30" height="25" fill="#000" opacity="0.9" />
+    <rect x="120" y="115" width="35" height="40" fill="#000" opacity="0.7" />
+    <rect x="45" y="130" width="40" height="30" fill="#000" opacity="0.8" />
+
+    <!-- Vertical structural bars (Creates the 3 separate computer "banks") -->
+    <line x1="80" y1="40" x2="80" y2="160" stroke="#111" stroke-width="4" />
+    <line x1="120" y1="40" x2="120" y2="160" stroke="#111" stroke-width="4" />
+  </g>
+
+  <!-- W.O.P.R. Name Plate -->
+  <rect x="85" y="163" width="30" height="5" fill="#222" rx="1" />
+  <rect x="75" y="172" width="50" height="12" fill="#0a0c0f" rx="2" />
+  <text x="100" y="181" fill="#ff3b30" font-family="monospace, sans-serif" font-size="8" font-weight="bold" text-anchor="middle" letter-spacing="1">WOPR</text>
+  
+</svg>

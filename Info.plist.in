@@ -1,0 +1,75 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN" "http://www.apple.com/DTDs/PropertyList-1.0.dtd">
+<plist version="1.0">
+<dict>
+  <key>CFBundleExecutable</key>
+  <string>${MACOSX_BUNDLE_EXECUTABLE_NAME}</string>
+  <key>CFBundleIconFile</key>
+  <string>app_icon.icns</string>
+  <key>CFBundleIdentifier</key>
+  <string>com.glowingcatsoftware.joshua</string>
+  <key>CFBundleName</key>
+  <string>${MACOSX_BUNDLE_BUNDLE_NAME}</string>
+  <key>CFBundlePackageType</key>
+  <string>APPL</string>
+  <key>CFBundleShortVersionString</key>
+  <string>${MACOSX_BUNDLE_SHORT_VERSION_STRING}</string>
+  <key>CFBundleVersion</key>
+  <string>${MACOSX_BUNDLE_BUNDLE_VERSION}</string>
+  <key>NSHighResolutionCapable</key>
+  <true/>
+  <key>CFBundleDocumentTypes</key>
+  <array>
+    <dict>
+      <key>CFBundleTypeName</key>
+      <string>7-Zip Archive</string>
+      <key>CFBundleTypeIconFile</key>
+      <string>doc_icon_7zip</string>
+      <key>CFBundleTypeExtensions</key>
+      <array>
+        <string>7z</string>
+      </array>
+      <key>CFBundleTypeRole</key>
+      <string>Editor</string>
+      <key>LSHandlerRank</key>
+      <string>Default</string>
+    </dict>
+    <dict>
+      <key>CFBundleTypeName</key>
+      <string>ZIP Archive</string>
+      <key>CFBundleTypeIconFile</key>
+      <string>doc_icon_zip</string>
+      <key>CFBundleTypeExtensions</key>
+      <array>
+        <string>zip</string>
+      </array>
+      <key>CFBundleTypeRole</key>
+      <string>Editor</string>
+      <key>LSHandlerRank</key>
+      <string>Default</string>
+    </dict>
+    <dict>
+      <key>CFBundleTypeName</key>
+      <string>Tar Archive</string>
+      <key>CFBundleTypeIconFile</key>
+      <string>doc_icon_tar</string>
+      <key>CFBundleTypeExtensions</key>
+      <array>
+        <string>tar</string>
+        <string>tgz</string>
+        <string>tbz</string>
+        <string>txz</string>
+        <string>tzst</string>
+        <string>tar.gz</string>
+        <string>tar.bz2</string>
+        <string>tar.xz</string>
+        <string>tar.zst</string>
+      </array>
+      <key>CFBundleTypeRole</key>
+      <string>Editor</string>
+      <key>LSHandlerRank</key>
+      <string>Default</string>
+    </dict>
+  </array>
+</dict>
+</plist>

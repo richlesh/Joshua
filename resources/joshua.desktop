@@ -1,0 +1,9 @@
+[Desktop Entry]
+Name=Joshua
+Comment=AI Games
+Exec=Joshua %F
+Icon=Joshua
+Terminal=false
+Type=Application
+Categories=Utility;Archiving;
+MimeType=;

@@ -1,0 +1,9 @@
+.DS_Store
+.idea/
+cmake-build-debug/
+build/
+build-release/
+generate_license_key.py
+src/License.cpp
+license.js
+*.log

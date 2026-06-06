@@ -1,0 +1,6 @@
+<RCC>
+  <qresource prefix="/">
+    <file alias="icons/app_icon.png">icons/app_icon.png</file>
+    <file alias="fonts/JetBrainsMonoNL-Regular.ttf">fonts/JetBrainsMonoNL-Regular.ttf</file>
+  </qresource>
+</RCC>
