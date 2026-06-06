@@ -82,7 +82,15 @@ static void speak(const QString &text) {
   proc->start("powershell", {"-Command", QString("Add-Type -AssemblyName System.Speech; "
     "(New-Object System.Speech.Synthesis.SpeechSynthesizer).Speak('%1')").arg(QString(text).replace("'", "''"))});
 #else
-  proc->start("espeak", {text});
+  // Try espeak-ng first (modern Debian/Ubuntu), fall back to espeak
+  auto *check = new QProcess;
+  check->start("which", {"espeak-ng"});
+  check->waitForFinished(500);
+  if (check->exitCode() == 0)
+    proc->start("espeak-ng", {text});
+  else
+    proc->start("espeak", {text});
+  delete check;
 #endif
 }
 
