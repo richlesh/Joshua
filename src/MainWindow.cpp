@@ -5,6 +5,7 @@
 #include "ui_MainWindow.h"
 #include "Settings.h"
 #include "TicTacToeWindow.h"
+#include "CheckersWindow.h"
 #include "SettingsDialog.h"
 #include "AboutDialog.h"
 #include "LicenseDialog.h"
@@ -193,11 +194,15 @@ void MainWindow::handleInput(const QString &line) {
       m_terminal->printText("Do you want to go first? ");
       speak("Do you want to go first?");
       m_state = GoFirstPrompt;
+    } else if (ok && choice == 2) {
+      m_terminal->printText("Do you want to go first? ");
+      speak("Do you want to go first?");
+      m_state = CheckersGoFirstPrompt;
     } else if (ok && choice == 7) {
       m_terminal->printText("Nuclear war. A strange game, the only winning move is not to play.\nHow about a nice game of chess?\n\n");
       speak("Nuclear war. A strange game, the only winning move is not to play. How about a nice game of chess?");
       m_terminal->showPrompt("Which game would you like to play? ");
-    } else if (ok && choice >= 2 && choice <= 6) {
+    } else if (ok && choice >= 3 && choice <= 6) {
       m_terminal->printText("That game is not currently available.\n\n");
       speak("That game is not currently available.");
       m_terminal->showPrompt("Which game would you like to play? ");
@@ -223,5 +228,82 @@ void MainWindow::handleInput(const QString &line) {
       speak("Do you want to go first?");
     }
     break;
+
+  case CheckersGoFirstPrompt:
+    if (yesWords.contains(input) || noWords.contains(input)) {
+      m_checkersUserFirst = yesWords.contains(input);
+      m_terminal->printText("Difficulty (Really Easy, Easy, Medium, Hard)? ");
+      speak("Difficulty?");
+      m_state = CheckersDifficultyPrompt;
+    } else {
+      m_terminal->printText("Do you want to go first? ");
+      speak("Do you want to go first?");
+    }
+    break;
+
+  case CheckersDifficultyPrompt: {
+    int depth = 0;
+    if (input == "really easy" || input == "re" || input == "r") depth = 1;
+    else if (input == "easy" || input == "e") depth = 3;
+    else if (input == "medium" || input == "m") depth = 5;
+    else if (input == "hard" || input == "h") depth = 7;
+    if (depth > 0) {
+      m_checkersDepth = depth;
+      m_terminal->printText("Do you want the computer to play for you? ");
+      speak("Do you want the computer to play for you?");
+      m_state = CheckersAutoPlayPrompt;
+    } else {
+      m_terminal->printText("Difficulty (Really Easy, Easy, Medium, Hard)? ");
+    }
+    break;
+  }
+
+  case CheckersAutoPlayPrompt:
+    if (yesWords.contains(input) || noWords.contains(input)) {
+      if (yesWords.contains(input)) {
+        m_terminal->printText("Play level for your player (1-9)? ");
+        speak("Play level for your player?");
+        m_state = CheckersAutoPlayLevel;
+      } else {
+        m_terminal->printText("Do you want computer suggestions? ");
+        speak("Do you want computer suggestions?");
+        m_state = CheckersSuggestPrompt;
+      }
+    } else {
+      m_terminal->printText("Do you want the computer to play for you? ");
+      speak("Do you want the computer to play for you?");
+    }
+    break;
+
+  case CheckersSuggestPrompt:
+    if (yesWords.contains(input) || noWords.contains(input)) {
+      m_checkersSuggest = yesWords.contains(input);
+      auto *game = new CheckersWindow(m_checkersUserFirst, m_checkersDepth, m_checkersSuggest, nullptr);
+      game->setAttribute(Qt::WA_DeleteOnClose);
+      game->show();
+      m_terminal->printText("\n");
+      m_terminal->showPrompt("Which game would you like to play? ");
+      m_state = GameMenu;
+    } else {
+      m_terminal->printText("Do you want computer suggestions? ");
+      speak("Do you want computer suggestions?");
+    }
+    break;
+
+  case CheckersAutoPlayLevel: {
+    bool ok;
+    int level = line.trimmed().toInt(&ok);
+    if (ok && level >= 1 && level <= 9) {
+      auto *game = new CheckersWindow(m_checkersUserFirst, m_checkersDepth, level, nullptr);
+      game->setAttribute(Qt::WA_DeleteOnClose);
+      game->show();
+      m_terminal->printText("\n");
+      m_terminal->showPrompt("Which game would you like to play? ");
+      m_state = GameMenu;
+    } else {
+      m_terminal->printText("Play level for your player (1-9)? ");
+    }
+    break;
+  }
   }
 }

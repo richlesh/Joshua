@@ -44,13 +44,16 @@ protected:
 
 private:
   void applySettings();
-  enum State { LogonPrompt, GreetingPrompt, GameMenu, GoFirstPrompt };
+  enum State { LogonPrompt, GreetingPrompt, GameMenu, GoFirstPrompt, CheckersGoFirstPrompt, CheckersDifficultyPrompt, CheckersSuggestPrompt, CheckersAutoPlayPrompt, CheckersAutoPlayLevel };
 
   Ui::MainWindow *ui;
   Settings &m_settings;
   bool m_licensed;
   TerminalWidget *m_terminal;
   State m_state = LogonPrompt;
+  bool m_checkersUserFirst = true;
+  bool m_checkersSuggest = false;
+  int m_checkersDepth = 5;
 };
 
 #endif // MAINWINDOW_H
