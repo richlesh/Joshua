@@ -35,31 +35,26 @@ jobs:
           arch: ${{ matrix.arch == 'arm64' && 'win64_msvc2022_arm64_cross_compiled' || 'win64_msvc2022_64' }}
           cache: true
 
-      - name: Install libarchive via vcpkg
-        run: vcpkg install libarchive:${{ matrix.arch == 'arm64' && 'arm64-windows' || 'x64-windows' }}
-
       - name: Inject license salt
         run: |
           @"
           #include "License.h"
 
           const QByteArray LICENSE_SALT = "${{ secrets.LICENSE_SALT }}";
-          "@ | Set-Content cpp/src/License.cpp
+          "@ | Set-Content src/License.cpp
         shell: powershell
 
       - name: Update version in CMakeLists.txt
         run: |
-          (Get-Content cpp/CMakeLists.txt) -replace 'project\(Joshua VERSION [0-9.]+', "project(Joshua VERSION ${{ steps.version.outputs.version }}" | Set-Content cpp/CMakeLists.txt
+          (Get-Content CMakeLists.txt) -replace 'project\(Joshua VERSION [0-9.]+', "project(Joshua VERSION ${{ steps.version.outputs.version }}" | Set-Content CMakeLists.txt
         shell: powershell
 
       - name: Configure and build
         run: |
           $cmakeArch = if ("${{ matrix.arch }}" -eq "arm64") { "ARM64" } else { "x64" }
-          cmake -S cpp -B build -G "Visual Studio 17 2022" -A $cmakeArch `
+          cmake -S . -B build -G "Visual Studio 17 2022" -A $cmakeArch `
             -DCMAKE_BUILD_TYPE=Release `
-            -DCMAKE_PREFIX_PATH="$env:Qt6_DIR/.." `
-            -DCMAKE_TOOLCHAIN_FILE="$env:VCPKG_INSTALLATION_ROOT/scripts/buildsystems/vcpkg.cmake" `
-            -DVCPKG_TARGET_TRIPLET="${{ matrix.arch == 'arm64' && 'arm64-windows' || 'x64-windows' }}"
+            -DCMAKE_PREFIX_PATH="$env:Qt6_DIR/.."
           cmake --build build --config Release
         shell: powershell
 

@@ -26,14 +26,13 @@ jobs:
         env:
           TAG: ${{ github.event.inputs.tag }}
 
-      - name: Install Qt6 and libarchive
+      - name: Install Qt6
         run: |
           if [ "${{ matrix.arch }}" = "x64" ]; then
-            # Install x86_64 Homebrew and libraries for cross-compilation
             arch -x86_64 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-            arch -x86_64 /usr/local/bin/brew install qt@6 libarchive cmake ninja
+            arch -x86_64 /usr/local/bin/brew install qt@6 cmake ninja
           else
-            brew install qt@6 libarchive cmake ninja
+            brew install qt@6 cmake ninja
           fi
 
       - name: Import Developer ID certificate
@@ -58,29 +57,27 @@ jobs:
 
       - name: Inject license salt
         run: |
-          cat > cpp/src/License.cpp << EOF
+          cat > src/License.cpp << EOF
           #include "License.h"
 
           const QByteArray LICENSE_SALT = "${{ secrets.LICENSE_SALT }}";
           EOF
 
       - name: Update version in CMakeLists.txt
-        run: sed -i '' "s/project(Joshua VERSION [0-9.]*/project(Joshua VERSION ${{ steps.version.outputs.version }}/" cpp/CMakeLists.txt
+        run: sed -i '' "s/project(Joshua VERSION [0-9.]*/project(Joshua VERSION ${{ steps.version.outputs.version }}/" CMakeLists.txt
 
       - name: Configure and build
         run: |
           if [ "${{ matrix.arch }}" = "x64" ]; then
             QT_PREFIX="/usr/local/opt/qt@6"
-            ARCHIVE_PREFIX="/usr/local/opt/libarchive"
           else
             QT_PREFIX="$(brew --prefix qt@6)"
-            ARCHIVE_PREFIX="$(brew --prefix libarchive)"
           fi
           CMAKE_ARCH=${{ matrix.arch == 'arm64' && 'arm64' || 'x86_64' }}
-          cmake -S cpp -B build -G Ninja \
+          cmake -S . -B build -G Ninja \
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_OSX_ARCHITECTURES=${CMAKE_ARCH} \
-            -DCMAKE_PREFIX_PATH="${QT_PREFIX};${ARCHIVE_PREFIX}"
+            -DCMAKE_PREFIX_PATH="${QT_PREFIX}"
           cmake --build build
 
       - name: Deploy, sign, and create DMG
@@ -101,11 +98,9 @@ jobs:
             -always-overwrite \
             -no-strip
 
-          # Remove plugins that reference unavailable Qt modules
+          # Remove unnecessary plugins
           rm -rf build/Joshua.app/Contents/PlugIns/virtualkeyboard
-          rm -rf build/Joshua.app/Contents/PlugIns/imageformats/libqpdf.dylib
-          rm -rf build/Joshua.app/Contents/PlugIns/imageformats/libqsvg.dylib
-          rm -rf build/Joshua.app/Contents/PlugIns/imageformats/libqwebp.dylib
+          rm -rf build/Joshua.app/Contents/PlugIns/imageformats
 
           # Sign all bundled libraries and frameworks with hardened runtime
           find build/Joshua.app/Contents/Frameworks -type f \( -name "*.dylib" -o -perm +111 \) | while read f; do
@@ -129,7 +124,7 @@ jobs:
 
           # Mount and customize
           hdiutil attach "dist/Joshua-rw.dmg" -mountpoint /Volumes/Joshua
-          cp cpp/resources/icons/app_icon.icns /Volumes/Joshua/.VolumeIcon.icns
+          cp resources/icons/app_icon.icns /Volumes/Joshua/.VolumeIcon.icns
           SetFile -a C /Volumes/Joshua
 
           # Set Finder window layout

@@ -1,9 +1,8 @@
 [Desktop Entry]
 Name=Joshua
-Comment=AI Games
-Exec=Joshua %F
-Icon=Joshua
+Comment=AI terminal game inspired by WarGames
+Exec=Joshua
+Icon=joshua
 Terminal=false
 Type=Application
-Categories=Utility;Archiving;
-MimeType=;
+Categories=Game;

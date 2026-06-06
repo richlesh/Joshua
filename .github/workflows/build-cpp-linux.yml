@@ -29,22 +29,22 @@ jobs:
       - name: Install Qt6 and build dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y qt6-base-dev libarchive-dev cmake ninja-build rpm
+          sudo apt-get install -y qt6-base-dev cmake ninja-build rpm
 
       - name: Inject license salt
         run: |
-          cat > cpp/src/License.cpp << EOF
+          cat > src/License.cpp << EOF
           #include "License.h"
 
           const QByteArray LICENSE_SALT = "${{ secrets.LICENSE_SALT }}";
           EOF
 
       - name: Update version in CMakeLists.txt
-        run: sed -i "s/project(Joshua VERSION [0-9.]*/project(Joshua VERSION ${{ steps.version.outputs.version }}/" cpp/CMakeLists.txt
+        run: sed -i "s/project(Joshua VERSION [0-9.]*/project(Joshua VERSION ${{ steps.version.outputs.version }}/" CMakeLists.txt
 
       - name: Configure and build
         run: |
-          cmake -S cpp -B build -G Ninja \
+          cmake -S . -B build -G Ninja \
             -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_INSTALL_PREFIX=/usr
           cmake --build build
@@ -63,16 +63,17 @@ jobs:
           mkdir -p ${PKG_DIR}/usr/share/icons/hicolor/256x256/apps
 
           cp build/Joshua ${PKG_DIR}/usr/bin/
-          cp cpp/resources/icons/app_icon.png ${PKG_DIR}/usr/share/icons/hicolor/256x256/apps/joshua.png
+          cp resources/icons/app_icon_256.png ${PKG_DIR}/usr/share/icons/hicolor/256x256/apps/joshua.png
 
           cat > ${PKG_DIR}/usr/share/applications/joshua.desktop << 'DESKTOP'
           [Desktop Entry]
           Name=Joshua
-          Exec=Joshua %F
+          Comment=AI terminal game inspired by WarGames
+          Exec=Joshua
           Icon=joshua
+          Terminal=false
           Type=Application
-          Categories=Utility;Archiving;
-          MimeType=application/zip;application/x-7z-compressed;application/x-tar;application/gzip;application/x-bzip2;application/x-xz;
+          Categories=Game;
           DESKTOP
 
           cat > ${PKG_DIR}/DEBIAN/control << CTRL
@@ -80,9 +81,9 @@ jobs:
           Version: ${VERSION}
           Architecture: ${ARCH}
           Maintainer: Richard Lesh <richard@glowingcatsoftware.com>
-          Description: Cross-platform archive management tool
-          Depends: libqt6widgets6, libarchive13
-          Section: utils
+          Description: AI terminal game inspired by WarGames
+          Depends: libqt6widgets6
+          Section: games
           Priority: optional
           CTRL
 
@@ -100,20 +101,20 @@ jobs:
           mkdir -p rpmbuild/BUILDROOT/joshua-${VERSION}-1.${ARCH}/usr/share/icons/hicolor/256x256/apps
 
           cp build/Joshua rpmbuild/BUILDROOT/joshua-${VERSION}-1.${ARCH}/usr/bin/
-          cp cpp/resources/icons/app_icon.png rpmbuild/BUILDROOT/joshua-${VERSION}-1.${ARCH}/usr/share/icons/hicolor/256x256/apps/joshua.png
+          cp resources/icons/app_icon_256.png rpmbuild/BUILDROOT/joshua-${VERSION}-1.${ARCH}/usr/share/icons/hicolor/256x256/apps/joshua.png
           cp pkg-deb/*/usr/share/applications/joshua.desktop rpmbuild/BUILDROOT/joshua-${VERSION}-1.${ARCH}/usr/share/applications/
 
           cat > rpmbuild/SPECS/joshua.spec << SPEC
           Name: joshua
           Version: ${VERSION}
           Release: 1
-          Summary: Cross-platform archive management tool
+          Summary: AI terminal game inspired by WarGames
           License: GPL-3.0
 
-          Requires: qt6-qtbase, libarchive
+          Requires: qt6-qtbase
 
           %description
-          Cross-platform archive management tool.
+          AI terminal game inspired by WarGames.
 
           %files
           /usr/bin/Joshua
