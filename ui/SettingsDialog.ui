@@ -14,7 +14,9 @@
    <item row="2" column="1"><widget class="QPushButton" name="treeColorPicker"><property name="text"><string>Choose…</string></property></widget></item>
    <item row="3" column="0"><widget class="QLabel" name="labelAudio"><property name="text"><string>Audio:</string></property></widget></item>
    <item row="3" column="1"><widget class="QComboBox" name="audioCombo"/></item>
-   <item row="4" column="1">
+   <item row="4" column="0"><widget class="QLabel" name="labelVoice"><property name="text"><string>Voice:</string></property></widget></item>
+   <item row="4" column="1"><widget class="QComboBox" name="voiceCombo"/></item>
+   <item row="5" column="1">
     <widget class="QDialogButtonBox" name="buttonBox">
      <property name="standardButtons"><set>QDialogButtonBox::Ok|QDialogButtonBox::Cancel</set></property>
     </widget>

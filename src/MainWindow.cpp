@@ -76,20 +76,34 @@ static void speak(const QString &text) {
   if (s_settings && !s_settings->audioEnabled()) return;
   auto *proc = new QProcess;
   proc->connect(proc, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished), proc, &QProcess::deleteLater);
+  QString voice = (s_settings && !s_settings->voiceName().isEmpty()) ? s_settings->voiceName() : QString();
 #ifdef Q_OS_MACOS
-  proc->start("say", {"-v", "Fred", text});
+  QStringList args;
+  args << "-v" << (voice.isEmpty() ? "Fred" : voice) << text;
+  proc->start("say", args);
 #elif defined(Q_OS_WIN)
-  proc->start("powershell", {"-Command", QString("Add-Type -AssemblyName System.Speech; "
-    "(New-Object System.Speech.Synthesis.SpeechSynthesizer).Speak('%1')").arg(QString(text).replace("'", "''"))});
+  QString voiceSelect;
+  if (voice.isEmpty()) voice = "Microsoft David Desktop";
+  voiceSelect = QString("$s = New-Object System.Speech.Synthesis.SpeechSynthesizer; "
+    "$s.SelectVoice('%1'); $s.Speak('%2')").arg(voice, QString(text).replace("'", "''"));
+  proc->start("powershell", {"-Command", "Add-Type -AssemblyName System.Speech; " + voiceSelect});
 #else
-  // Try espeak-ng first (modern Debian/Ubuntu), fall back to espeak
   auto *check = new QProcess;
   check->start("which", {"espeak-ng"});
   check->waitForFinished(500);
-  if (check->exitCode() == 0)
-    proc->start("espeak-ng", {text});
-  else
-    proc->start("espeak", {text});
+  if (check->exitCode() == 0) {
+    QStringList args;
+    if (voice.isEmpty()) voice = "en";
+    args << "-v" << voice;
+    args << text;
+    proc->start("espeak-ng", args);
+  } else {
+    QStringList args;
+    if (voice.isEmpty()) voice = "en";
+    args << "-v" << voice;
+    args << text;
+    proc->start("espeak", args);
+  }
   delete check;
 #endif
 }

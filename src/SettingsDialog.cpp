@@ -8,6 +8,8 @@
 #include <QColorDialog>
 #include <QPushButton>
 #include <QComboBox>
+#include <QProcess>
+#include <QRegularExpression>
 #include <QStyleFactory>
 
 SettingsDialog::SettingsDialog(Settings &settings, QWidget *parent)
@@ -33,6 +35,9 @@ SettingsDialog::SettingsDialog(Settings &settings, QWidget *parent)
   ui->audioCombo->setStyle(QStyleFactory::create("Fusion"));
   ui->audioCombo->addItems({tr("On"), tr("Off")});
   ui->audioCombo->setCurrentIndex(m_settings.audioEnabled() ? 0 : 1);
+
+  ui->voiceCombo->setStyle(QStyleFactory::create("Fusion"));
+  populateVoices();
 
   setFixedSize(sizeHint());
 }
@@ -63,11 +68,50 @@ void SettingsDialog::pickTreeColor() {
   }
 }
 
+void SettingsDialog::populateVoices() {
+  QProcess proc;
+#ifdef Q_OS_MACOS
+  proc.start("say", {"-v", "?"});
+#elif defined(Q_OS_WIN)
+  proc.start("powershell", {"-Command",
+    "Add-Type -AssemblyName System.Speech; "
+    "(New-Object System.Speech.Synthesis.SpeechSynthesizer).GetInstalledVoices() | "
+    "ForEach-Object { $_.VoiceInfo.Name }"});
+#else
+  proc.start("espeak-ng", {"--voices"});
+#endif
+  proc.waitForFinished(3000);
+  QString output = QString::fromUtf8(proc.readAllStandardOutput());
+  QStringList voices;
+  for (const QString &line : output.split('\n', Qt::SkipEmptyParts)) {
+#ifdef Q_OS_MACOS
+    QString name = line.section(' ', 0, 0).trimmed();
+    // Multi-word voice names: everything before the language code column
+    // Format: "Voice Name    lang_CODE  ..."
+    int idx = line.indexOf(QRegularExpression("\\s[a-z]{2}[_-]"));
+    if (idx > 0) name = line.left(idx).trimmed();
+#elif defined(Q_OS_WIN)
+    QString name = line.trimmed();
+#else
+    // espeak-ng --voices format: columns, voice name is column 4 (index 3)
+    QStringList cols = line.split(QRegularExpression("\\s+"), Qt::SkipEmptyParts);
+    if (cols.size() < 4 || cols[0] == "Pty") continue;
+    QString name = cols[3];
+#endif
+    if (!name.isEmpty()) voices << name;
+  }
+  if (voices.isEmpty()) voices << "Default";
+  ui->voiceCombo->addItems(voices);
+  int idx = ui->voiceCombo->findText(m_settings.voiceName());
+  if (idx >= 0) ui->voiceCombo->setCurrentIndex(idx);
+}
+
 void SettingsDialog::accept() {
   m_settings.setFontSize(ui->fontSizeCombo->currentText());
   m_settings.setFontColor(m_buttonColor);
   m_settings.setBackgroundColor(m_treeColor);
   m_settings.setAudioEnabled(ui->audioCombo->currentIndex() == 0);
+  m_settings.setVoiceName(ui->voiceCombo->currentText());
   m_settings.save();
   QDialog::accept();
 }

@@ -24,6 +24,7 @@ private slots:
 
 private:
   void updateSwatch(class QPushButton *btn, const QColor &color);
+  void populateVoices();
 
   Ui::SettingsDialog *ui;
   Settings &m_settings;

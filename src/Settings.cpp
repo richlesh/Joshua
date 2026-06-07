@@ -37,6 +37,8 @@ void Settings::load() {
     m_headerState = QByteArray::fromBase64(obj.value("headerState").toString().toLatin1());
   if (obj.contains("audioEnabled"))
     m_audioEnabled = obj.value("audioEnabled").toBool();
+  if (obj.contains("voiceName"))
+    m_voiceName = obj.value("voiceName").toString();
 }
 
 void Settings::save() {
@@ -52,6 +54,7 @@ void Settings::save() {
   if (!m_headerState.isEmpty())
     obj["headerState"] = QString::fromLatin1(m_headerState.toBase64());
   obj["audioEnabled"] = m_audioEnabled;
+  obj["voiceName"] = m_voiceName;
 
   QFile file(settingsFilePath());
   if (!file.open(QIODevice::WriteOnly)) return;
@@ -76,3 +79,5 @@ QByteArray Settings::headerState() const { return m_headerState; }
 void Settings::setHeaderState(const QByteArray &state) { m_headerState = state; }
 bool Settings::audioEnabled() const { return m_audioEnabled; }
 void Settings::setAudioEnabled(bool enabled) { m_audioEnabled = enabled; }
+QString Settings::voiceName() const { return m_voiceName; }
+void Settings::setVoiceName(const QString &name) { m_voiceName = name; }

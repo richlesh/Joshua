@@ -34,6 +34,8 @@ public:
   void setHeaderState(const QByteArray &state);
   bool audioEnabled() const;
   void setAudioEnabled(bool enabled);
+  QString voiceName() const;
+  void setVoiceName(const QString &name);
 
 private:
   QString settingsFilePath() const;
@@ -47,6 +49,13 @@ private:
   QSize m_windowSize{800, 600};
   QByteArray m_headerState;
   bool m_audioEnabled{true};
+#ifdef Q_OS_MACOS
+  QString m_voiceName{"Fred"};
+#elif defined(Q_OS_WIN)
+  QString m_voiceName{"Microsoft David Desktop"};
+#else
+  QString m_voiceName{"en"};
+#endif
 };
 
 #endif // SETTINGS_H
