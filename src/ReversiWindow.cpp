@@ -8,6 +8,7 @@
 #include <QMessageBox>
 #include <algorithm>
 #include <limits>
+#include <future>
 
 static const int kSquareSize = 70;
 static const int kBoardSize = 8 * kSquareSize;
@@ -128,7 +129,7 @@ void ReversiWindow::advanceFlipAnim() {
     if (m_autoPlay) {
       m_userTurn = false;
       update();
-      QTimer::singleShot(300, this, &ReversiWindow::computerMove);
+      QTimer::singleShot(500, this, &ReversiWindow::computerMove);
     } else {
       // Determine whose turn it is based on m_blackTurn
       bool userPlays = (m_userIsBlack && m_blackTurn) || (!m_userIsBlack && !m_blackTurn);
@@ -136,14 +137,50 @@ void ReversiWindow::advanceFlipAnim() {
       m_suggestedMove = -1;
       update();
       if (!m_userTurn)
-        QTimer::singleShot(300, this, &ReversiWindow::computerMove);
+        QTimer::singleShot(500, this, &ReversiWindow::computerMove);
       else
-        computeSuggestion();
+        QTimer::singleShot(100, this, &ReversiWindow::computeSuggestion);
     }
   }
 }
 
 // --- AI ---
+
+// --- Thread-safe static helpers for parallel search ---
+
+using Board = std::array<int8_t, 64>;
+
+static std::vector<int> s_getFlipsDir(const Board &board, int idx, int8_t disc, int dr, int dc) {
+  std::vector<int> flips;
+  int r = idx / 8 + dr, c = idx % 8 + dc;
+  while (r >= 0 && r < 8 && c >= 0 && c < 8) {
+    int8_t val = board[r * 8 + c];
+    if (val == 0) return {};
+    if (val == disc) return flips;
+    flips.push_back(r * 8 + c);
+    r += dr; c += dc;
+  }
+  return {};
+}
+
+static std::vector<int> s_getFlips(const Board &board, int idx, int8_t disc) {
+  if (board[idx] != 0) return {};
+  std::vector<int> all;
+  for (int dr = -1; dr <= 1; dr++)
+    for (int dc = -1; dc <= 1; dc++) {
+      if (dr == 0 && dc == 0) continue;
+      auto f = s_getFlipsDir(board, idx, disc, dr, dc);
+      all.insert(all.end(), f.begin(), f.end());
+    }
+  return all;
+}
+
+static std::vector<int> s_validMoves(const Board &board, int8_t disc) {
+  std::vector<int> moves;
+  for (int i = 0; i < 64; i++)
+    if (!s_getFlips(board, i, disc).empty()) moves.push_back(i);
+  return moves;
+}
 
 static const int kWeights[64] = {
   100, -20, 10,  5,  5, 10, -20, 100,
@@ -155,6 +192,73 @@ static const int kWeights[64] = {
   -20, -50, -2, -2, -2, -2, -50, -20,
   100, -20, 10,  5,  5, 10, -20, 100
 };
+
+static int s_evaluate(const Board &board, bool compIsBlack) {
+  int score = 0;
+  int compDiscs = 0, oppDiscs = 0;
+  int8_t compDisc = compIsBlack ? 1 : -1;
+  int8_t oppDisc = compIsBlack ? -1 : 1;
+  for (int i = 0; i < 64; i++) {
+    if (board[i] == 0) continue;
+    bool isComp = (board[i] == compDisc);
+    if (isComp) { score += kWeights[i]; compDiscs++; }
+    else { score -= kWeights[i]; oppDiscs++; }
+  }
+  int compMobility = (int)s_validMoves(board, compDisc).size();
+  int oppMobility = (int)s_validMoves(board, oppDisc).size();
+  score += (compMobility - oppMobility) * 5;
+  int total = compDiscs + oppDiscs;
+  if (total > 52) score += (compDiscs - oppDiscs) * 10;
+  return score;
+}
+
+static int s_minimax(Board board, int depth, int alpha, int beta, bool maximizing, bool compIsBlack) {
+  int8_t disc = maximizing ? (compIsBlack ? 1 : -1) : (compIsBlack ? -1 : 1);
+  auto moves = s_validMoves(board, disc);
+
+  if (depth == 0 || moves.empty()) {
+    if (moves.empty()) {
+      auto oppMoves = s_validMoves(board, disc == 1 ? -1 : 1);
+      if (oppMoves.empty()) {
+        int b = 0, w = 0;
+        for (int i = 0; i < 64; i++) { if (board[i] == 1) b++; else if (board[i] == -1) w++; }
+        int diff = compIsBlack ? (b - w) : (w - b);
+        return diff * 1000;
+      }
+    }
+    return s_evaluate(board, compIsBlack);
+  }
+
+  if (maximizing) {
+    int maxEval = std::numeric_limits<int>::min();
+    for (int mv : moves) {
+      Board child = board;
+      auto flips = s_getFlips(child, mv, disc);
+      child[mv] = disc;
+      for (int f : flips) child[f] = disc;
+      int eval = s_minimax(child, depth - 1, alpha, beta, false, compIsBlack);
+      maxEval = std::max(maxEval, eval);
+      alpha = std::max(alpha, eval);
+      if (beta <= alpha) break;
+    }
+    return maxEval;
+  } else {
+    int minEval = std::numeric_limits<int>::max();
+    for (int mv : moves) {
+      Board child = board;
+      auto flips = s_getFlips(child, mv, disc);
+      child[mv] = disc;
+      for (int f : flips) child[f] = disc;
+      int eval = s_minimax(child, depth - 1, alpha, beta, true, compIsBlack);
+      minEval = std::min(minEval, eval);
+      beta = std::min(beta, eval);
+      if (beta <= alpha) break;
+    }
+    return minEval;
+  }
+}
+
+// --- End thread-safe helpers ---
 
 int ReversiWindow::evaluate() const {
   bool compIsBlack = !m_userIsBlack;
@@ -267,16 +371,36 @@ void ReversiWindow::computerMove() {
     if (isHumanProxy) searchDepth = m_humanDepth;
   }
 
+  bool compIsBlack = !m_userIsBlack;
+  if (m_autoPlay) compIsBlack = (disc == Black);
+  Board boardSnapshot = m_board;
+
+  // Parallel root search: first move sequential, rest in parallel
   int bestMove = moves[0];
-  int bestScore = std::numeric_limits<int>::min();
-  for (int mv : moves) {
-    auto saved = m_board;
-    auto flips = getFlips(mv, disc);
-    m_board[mv] = disc;
-    for (int f : flips) m_board[f] = disc;
-    int score = minimax(searchDepth - 1, std::numeric_limits<int>::min(), std::numeric_limits<int>::max(), false);
-    m_board = saved;
-    if (score > bestScore) { bestScore = score; bestMove = mv; }
+  int bestScore;
+  {
+    Board child = boardSnapshot;
+    auto flips = s_getFlips(child, moves[0], disc);
+    child[moves[0]] = disc;
+    for (int f : flips) child[f] = disc;
+    bestScore = s_minimax(child, searchDepth - 1, std::numeric_limits<int>::min(), std::numeric_limits<int>::max(), false, compIsBlack);
+  }
+
+  if (moves.size() > 1) {
+    std::vector<std::future<int>> futures;
+    for (size_t i = 1; i < moves.size(); i++) {
+      futures.push_back(std::async(std::launch::async, [&, i]() {
+        Board child = boardSnapshot;
+        auto flips = s_getFlips(child, moves[i], disc);
+        child[moves[i]] = disc;
+        for (int f : flips) child[f] = disc;
+        return s_minimax(child, searchDepth - 1, std::numeric_limits<int>::min(), std::numeric_limits<int>::max(), false, compIsBlack);
+      }));
+    }
+    for (size_t i = 0; i < futures.size(); i++) {
+      int score = futures[i].get();
+      if (score > bestScore) { bestScore = score; bestMove = moves[i + 1]; }
+    }
   }
 
   unsetCursor();
@@ -292,17 +416,36 @@ void ReversiWindow::computeSuggestion() {
   auto moves = validMoves(disc);
   if (moves.empty()) return;
 
+  bool compIsBlack = (disc == Black);
+  Board boardSnapshot = m_board;
+
   int bestMove = moves[0];
-  int bestScore = std::numeric_limits<int>::min();
-  for (int mv : moves) {
-    auto saved = m_board;
-    auto flips = getFlips(mv, disc);
-    m_board[mv] = disc;
-    for (int f : flips) m_board[f] = disc;
-    int score = minimax(8, std::numeric_limits<int>::min(), std::numeric_limits<int>::max(), false);
-    m_board = saved;
-    if (score > bestScore) { bestScore = score; bestMove = mv; }
+  int bestScore;
+  {
+    Board child = boardSnapshot;
+    auto flips = s_getFlips(child, moves[0], disc);
+    child[moves[0]] = disc;
+    for (int f : flips) child[f] = disc;
+    bestScore = s_minimax(child, 8, std::numeric_limits<int>::min(), std::numeric_limits<int>::max(), false, compIsBlack);
   }
+
+  if (moves.size() > 1) {
+    std::vector<std::future<int>> futures;
+    for (size_t i = 1; i < moves.size(); i++) {
+      futures.push_back(std::async(std::launch::async, [&, i]() {
+        Board child = boardSnapshot;
+        auto flips = s_getFlips(child, moves[i], disc);
+        child[moves[i]] = disc;
+        for (int f : flips) child[f] = disc;
+        return s_minimax(child, 8, std::numeric_limits<int>::min(), std::numeric_limits<int>::max(), false, compIsBlack);
+      }));
+    }
+    for (size_t i = 0; i < futures.size(); i++) {
+      int score = futures[i].get();
+      if (score > bestScore) { bestScore = score; bestMove = moves[i + 1]; }
+    }
+  }
+
   m_suggestedMove = bestMove;
   update();
 }
