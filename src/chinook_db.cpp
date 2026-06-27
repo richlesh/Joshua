@@ -694,7 +694,11 @@ int chinook_lookup(uint32_t locbv_white, uint32_t locbv_black,
 
 void chinook_cleanup(void) {
     if (g_DBData) {
+#ifdef _WIN32
+        free((void *)g_DBData);
+#else
         munmap((void *)g_DBData, g_DBSize);
+#endif
         g_DBData = nullptr;
     }
     g_ready = false;
