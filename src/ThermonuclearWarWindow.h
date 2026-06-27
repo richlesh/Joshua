@@ -17,6 +17,7 @@ public:
 protected:
   void paintEvent(QPaintEvent *event) override;
   void mousePressEvent(QMouseEvent *event) override;
+  void mouseMoveEvent(QMouseEvent *event) override;
   void keyPressEvent(QKeyEvent *event) override;
 
 private:
@@ -30,6 +31,8 @@ private:
   std::vector<City> m_usaCities;
   std::vector<City> m_ussrCities;
   std::vector<City> m_chinaCities;
+  std::vector<City> m_neutralCities;
+  std::vector<int> m_neutralAlliance; // 0=US retaliates, 1=Russia retaliates, 2=China retaliates
   std::vector<int> m_selectedTargets;
   std::vector<int> m_selectedTargetsChina; // targets in China
   std::vector<Missile> m_missiles;
@@ -37,6 +40,7 @@ private:
   int m_animStep = 0;
   int m_flashCount = 0;
   int m_round = 0;
+  int m_hoverTarget = -1;
   bool m_usaRetaliated = false, m_ussrRetaliated = false, m_chinaRetaliated = false;
   std::mt19937 m_rng;
 

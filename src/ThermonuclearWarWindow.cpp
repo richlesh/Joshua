@@ -18,6 +18,7 @@ ThermonuclearWarWindow::ThermonuclearWarWindow(QWidget *parent) : QWidget(parent
   setWindowFlag(Qt::Window);
   setWindowTitle("Global Thermonuclear War");
   setFixedSize(kWinW, kWinH);
+  setMouseTracking(true);
   m_rng.seed(std::chrono::steady_clock::now().time_since_epoch().count());
 
   // Major US cities (top 21 MSAs)
@@ -59,6 +60,58 @@ ThermonuclearWarWindow::ThermonuclearWarWindow(QWidget *parent) : QWidget(parent
     {"Jinan", 36.7, 117.0, false}, {"Changsha", 28.2, 113.0, false}
   };
 
+  // Neutral cities with alliance: 0=US retaliates, 1=Russia retaliates, 2=China retaliates
+  m_neutralCities = {
+    {"Tokyo", 35.7, 139.7, false}, {"Delhi", 28.6, 77.2, false},
+    {"Dhaka", 23.8, 90.4, false},
+    {"Sao Paulo", -23.6, -46.6, false}, {"Mexico City", 19.4, -99.1, false},
+    {"Cairo", 30.0, 31.2, false}, {"Mumbai", 19.1, 72.9, false},
+    {"Osaka", 34.7, 135.5, false}, {"Karachi", 24.9, 67.0, false},
+    {"Kinshasa", -4.3, 15.3, false}, {"Lagos", 6.5, 3.4, false},
+    {"Istanbul", 41.0, 29.0, false}, {"Buenos Aires", -34.6, -58.4, false},
+    {"Kolkata", 22.6, 88.4, false}, {"Manila", 14.6, 121.0, false},
+    {"Lahore", 31.5, 74.3, false}, {"Bangalore", 13.0, 77.6, false},
+    {"Rio de Janeiro", -22.9, -43.2, false}, {"Chennai", 13.1, 80.3, false},
+    {"Bogota", 4.7, -74.1, false}, {"Paris", 48.9, 2.3, false},
+    {"Jakarta", -6.2, 106.8, false}, {"Lima", -12.0, -77.0, false},
+    {"Bangkok", 13.8, 100.5, false}, {"Hyderabad", 17.4, 78.5, false},
+    {"Seoul", 37.6, 127.0, false}, {"Nagoya", 35.2, 136.9, false},
+    {"London", 51.5, -0.1, false}, {"Tehran", 35.7, 51.4, false},
+    {"Ho Chi Minh City", 10.8, 106.7, false}, {"Luanda", -8.8, 13.2, false},
+    {"Ahmedabad", 23.0, 72.6, false}, {"Kuala Lumpur", 3.1, 101.7, false},
+    {"Surat", 21.2, 72.8, false}, {"Dar es Salaam", -6.8, 39.3, false},
+    {"Baghdad", 33.3, 44.4, false}
+  };
+  // Additional US allies
+  m_neutralCities.push_back({"Berlin", 52.5, 13.4, false});
+  m_neutralCities.push_back({"Rome", 41.9, 12.5, false});
+  m_neutralCities.push_back({"Lisbon", 38.7, -9.1, false});
+  m_neutralCities.push_back({"Madrid", 40.4, -3.7, false});
+  m_neutralCities.push_back({"Barcelona", 41.4, 2.2, false});
+  m_neutralCities.push_back({"Milan", 45.5, 9.2, false});
+  m_neutralCities.push_back({"Sydney", -33.9, 151.2, false});
+  m_neutralCities.push_back({"Brisbane", -27.5, 153.0, false});
+  m_neutralCities.push_back({"Melbourne", -37.8, 145.0, false});
+  m_neutralCities.push_back({"Perth", -31.9, 115.9, false});
+  m_neutralCities.push_back({"Auckland", -36.8, 174.8, false});
+  m_neutralCities.push_back({"Toronto", 43.7, -79.4, false});
+  m_neutralCities.push_back({"Montreal", 45.5, -73.6, false});
+  // Alliance mapping: 0=US, 1=Russia, 2=China
+  m_neutralAlliance = {
+    0, 0, 2,           // Tokyo(US), Delhi(US), Dhaka(China)
+    0, 0, 1, 0,       // Sao Paulo(US), Mexico City(US), Cairo(Russia), Mumbai(US)
+    0, 1, 2, 2,       // Osaka(US), Karachi(Russia), Kinshasa(China), Lagos(China)
+    0, 0, 0, 0,       // Istanbul(US), Buenos Aires(US), Kolkata(US), Manila(US)
+    1, 0, 0, 0,       // Lahore(Russia), Bangalore(US), Rio(US), Chennai(US)
+    0, 0, 2, 0,       // Bogota(US), Paris(US), Jakarta(China), Lima(US)
+    2, 0, 0, 0,       // Bangkok(China), Hyderabad(US), Seoul(US), Nagoya(US)
+    0, 1, 2, 2,       // London(US), Tehran(Russia), Ho Chi Minh(China), Luanda(China)
+    0, 2, 0, 2,       // Ahmedabad(US), Kuala Lumpur(China), Surat(US), Dar es Salaam(China)
+    1                  // Baghdad(Russia)
+  };
+  // Additional US allies
+  for (int i = 0; i < 13; i++) m_neutralAlliance.push_back(0);
+
   connect(&m_animTimer, &QTimer::timeout, this, &ThermonuclearWarWindow::advanceAnimation);
 }
 
@@ -77,11 +130,13 @@ void ThermonuclearWarWindow::startLaunch() {
   // Get player's cities as launch sources
   auto &sources = (m_playerSide == 0) ? m_usaCities : (m_playerSide == 1) ? m_ussrCities : m_chinaCities;
 
-  // Build combined enemy target list
+  // Build combined enemy target list (nations + non-allied neutrals)
   std::vector<City*> enemyCities;
   if (m_playerSide != 0) for (auto &c : m_usaCities) enemyCities.push_back(&c);
   if (m_playerSide != 1) for (auto &c : m_ussrCities) enemyCities.push_back(&c);
   if (m_playerSide != 2) for (auto &c : m_chinaCities) enemyCities.push_back(&c);
+  for (int i = 0; i < (int)m_neutralCities.size(); i++)
+    if (m_neutralAlliance[i] != m_playerSide) enemyCities.push_back(&m_neutralCities[i]);
 
   for (int ti : m_selectedTargets) {
     int si = m_rng() % sources.size();
@@ -107,16 +162,40 @@ void ThermonuclearWarWindow::advanceAnimation() {
       if (m_playerSide != 0) for (auto &c : m_usaCities) enemyCities.push_back(&c);
       if (m_playerSide != 1) for (auto &c : m_ussrCities) enemyCities.push_back(&c);
       if (m_playerSide != 2) for (auto &c : m_chinaCities) enemyCities.push_back(&c);
-      
+      for (int i = 0; i < (int)m_neutralCities.size(); i++)
+        if (m_neutralAlliance[i] != m_playerSide) enemyCities.push_back(&m_neutralCities[i]);
+
+      int nationCount = (int)enemyCities.size() - (int)std::count_if(m_neutralCities.begin(), m_neutralCities.end(), [](auto&){ return true; });
+      // Recount: nation cities are the first ones before neutrals
+      int usaCount2 = (m_playerSide != 0) ? (int)m_usaCities.size() : 0;
+      int ussrCount2 = (m_playerSide != 1) ? (int)m_ussrCities.size() : 0;
+      int chinaCount2 = (m_playerSide != 2) ? (int)m_chinaCities.size() : 0;
+      int nationTotal = usaCount2 + ussrCount2 + chinaCount2;
+
       bool usaHit = false, ussrHit = false, chinaHit = false;
       for (int ti : m_selectedTargets) {
         enemyCities[ti]->destroyed = true;
-        // Determine which nation this city belongs to
-        int usaCount = (m_playerSide != 0) ? (int)m_usaCities.size() : 0;
-        int ussrCount = (m_playerSide != 1) ? (int)m_ussrCities.size() : 0;
-        if (ti < usaCount) usaHit = true;
-        else if (ti < usaCount + ussrCount) ussrHit = true;
-        else chinaHit = true;
+        if (ti >= nationTotal) {
+          // Neutral city - find its alliance from the filtered list
+          // Count which neutral this is
+          int neutralIdx = 0, count = 0;
+          for (int ni = 0; ni < (int)m_neutralCities.size(); ni++) {
+            if (m_neutralAlliance[ni] != m_playerSide) {
+              if (count == ti - nationTotal) { neutralIdx = ni; break; }
+              count++;
+            }
+          }
+          int ally = m_neutralAlliance[neutralIdx];
+          if (ally == 0) usaHit = true;
+          else if (ally == 1) ussrHit = true;
+          else chinaHit = true;
+        } else if (ti < usaCount2) {
+          usaHit = true;
+        } else if (ti < usaCount2 + ussrCount2) {
+          ussrHit = true;
+        } else {
+          chinaHit = true;
+        }
       }
 
       m_phase = Retaliation;
@@ -209,6 +288,7 @@ void ThermonuclearWarWindow::advanceAnimation() {
         for (auto &c : m_usaCities) c.destroyed = false;
         for (auto &c : m_ussrCities) c.destroyed = false;
         for (auto &c : m_chinaCities) c.destroyed = false;
+        for (auto &c : m_neutralCities) c.destroyed = false;
       }
     }
   }
@@ -270,6 +350,7 @@ void ThermonuclearWarWindow::paintEvent(QPaintEvent *) {
   drawCities(m_usaCities, QColor(100, 150, 255));
   drawCities(m_ussrCities, QColor(255, 100, 100));
   drawCities(m_chinaCities, QColor(255, 200, 50));
+  drawCities(m_neutralCities, QColor(200, 200, 200));
 
   // Draw missiles in flight
   for (auto &m : m_missiles) {
@@ -293,6 +374,8 @@ void ThermonuclearWarWindow::paintEvent(QPaintEvent *) {
     if (m_playerSide != 0) for (auto &c : m_usaCities) enemyCities.push_back(&c);
     if (m_playerSide != 1) for (auto &c : m_ussrCities) enemyCities.push_back(&c);
     if (m_playerSide != 2) for (auto &c : m_chinaCities) enemyCities.push_back(&c);
+    for (int i = 0; i < (int)m_neutralCities.size(); i++)
+      if (m_neutralAlliance[i] != m_playerSide) enemyCities.push_back(&m_neutralCities[i]);
     for (int ti : m_selectedTargets) {
       auto pt = geoToScreen(enemyCities[ti]->lat, enemyCities[ti]->lon);
       p.setPen(QPen(QColor(255, 255, 0), 2));
@@ -304,6 +387,17 @@ void ThermonuclearWarWindow::paintEvent(QPaintEvent *) {
     p.setFont(sf);
     p.drawText(QRect(0, kWinH - 40, kWinW, 20), Qt::AlignCenter,
                QString("Click enemy cities to target (%1/3 selected). Click last to launch.").arg(m_selectedTargets.size()));
+    // Hover crosshairs
+    if (m_hoverTarget >= 0 && m_hoverTarget < (int)enemyCities.size()) {
+      auto pt = geoToScreen(enemyCities[m_hoverTarget]->lat, enemyCities[m_hoverTarget]->lon);
+      p.setPen(QPen(Qt::white, 1));
+      p.setBrush(Qt::NoBrush);
+      p.drawEllipse(pt, 12, 12);
+      p.drawLine(QPointF(pt.x()-16, pt.y()), QPointF(pt.x()-6, pt.y()));
+      p.drawLine(QPointF(pt.x()+6, pt.y()), QPointF(pt.x()+16, pt.y()));
+      p.drawLine(QPointF(pt.x(), pt.y()-16), QPointF(pt.x(), pt.y()-6));
+      p.drawLine(QPointF(pt.x(), pt.y()+6), QPointF(pt.x(), pt.y()+16));
+    }
   }
 
   // Status
@@ -349,6 +443,8 @@ void ThermonuclearWarWindow::mousePressEvent(QMouseEvent *event) {
     if (m_playerSide != 0) for (auto &c : m_usaCities) enemyCities.push_back(&c);
     if (m_playerSide != 1) for (auto &c : m_ussrCities) enemyCities.push_back(&c);
     if (m_playerSide != 2) for (auto &c : m_chinaCities) enemyCities.push_back(&c);
+    for (int i = 0; i < (int)m_neutralCities.size(); i++)
+      if (m_neutralAlliance[i] != m_playerSide) enemyCities.push_back(&m_neutralCities[i]);
     // Find closest city to click
     QPointF click = event->pos();
     int closest = -1;
@@ -367,11 +463,33 @@ void ThermonuclearWarWindow::mousePressEvent(QMouseEvent *event) {
         m_selectedTargets.push_back(closest);
       }
       if (m_selectedTargets.size() >= 3) {
-        startLaunch();
+        update();
+        QTimer::singleShot(800, this, &ThermonuclearWarWindow::startLaunch);
+        return;
       }
       update();
     }
   }
+}
+
+void ThermonuclearWarWindow::mouseMoveEvent(QMouseEvent *event) {
+  if (m_phase != SelectingTargets) { m_hoverTarget = -1; return; }
+  std::vector<City*> enemyCities;
+  if (m_playerSide != 0) for (auto &c : m_usaCities) enemyCities.push_back(&c);
+  if (m_playerSide != 1) for (auto &c : m_ussrCities) enemyCities.push_back(&c);
+  if (m_playerSide != 2) for (auto &c : m_chinaCities) enemyCities.push_back(&c);
+  for (int i = 0; i < (int)m_neutralCities.size(); i++)
+    if (m_neutralAlliance[i] != m_playerSide) enemyCities.push_back(&m_neutralCities[i]);
+
+  QPointF pos = event->pos();
+  int closest = -1;
+  double minDist = 20;
+  for (int i = 0; i < (int)enemyCities.size(); i++) {
+    auto pt = geoToScreen(enemyCities[i]->lat, enemyCities[i]->lon);
+    double d = std::hypot(pos.x() - pt.x(), pos.y() - pt.y());
+    if (d < minDist) { minDist = d; closest = i; }
+  }
+  if (closest != m_hoverTarget) { m_hoverTarget = closest; update(); }
 }
 
 void ThermonuclearWarWindow::keyPressEvent(QKeyEvent *event) {
