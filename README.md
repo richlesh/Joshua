@@ -1,4 +1,4 @@
-# Joshua v1.2.0
+# Joshua v1.3.0
 
 A WarGames-inspired AI terminal game application.
 
@@ -22,6 +22,14 @@ A WarGames-inspired AI terminal game application.
   - Hover-to-select column with animated piece drop
   - Computer suggestions highlighting best column
   - Computer-vs-computer spectator mode with configurable levels
+- Chess powered by bundled Stockfish engine
+  - Adjustable difficulty (Really Easy, Easy, Medium, Hard, Expert)
+  - Drag-and-drop piece movement
+  - Animated computer moves
+  - Computer suggestions highlighting best move
+  - Computer-vs-computer spectator mode with configurable levels
+  - Full strength endgame play
+  - Draw detection (50-move rule, threefold repetition, insufficient material)
 - Configurable terminal font size, font color, and background color
 - Text-to-speech for all game prompts (macOS/Windows/Linux)
 - Audio on/off setting
@@ -85,6 +93,7 @@ Joshua/
 │   ├── TicTacToeWindow.cpp/h # Tic-Tac-Toe game
 │   ├── CheckersWindow.cpp/h  # Checkers game with AI
 │   ├── FourAcrossWindow.cpp/h # Four Across game with AI
+│   ├── ChessWindow.cpp/h     # Chess game with Stockfish AI
 │   ├── Settings.cpp/h       # Settings persistence
 │   ├── SettingsDialog.cpp/h  # Settings UI
 │   ├── LicenseDialog.cpp/h   # License key entry
@@ -128,6 +137,19 @@ Classic 7×6 vertical drop game with:
 - Hover-to-select column with animated piece drop
 - Optional move suggestions (depth 9 analysis)
 - Computer-vs-computer mode with independent difficulty per side
+
+### Chess
+Standard chess powered by the bundled [Stockfish](https://stockfishchess.org) engine (GPL 3.0) with:
+- UCI protocol communication via QProcess
+- Adjustable difficulty via UCI_Elo (1320–3190)
+- Local legal move generation for instant move validation
+- Drag-and-drop piece movement with legal move highlighting
+- Animated computer moves
+- Optional best-move suggestions (full-strength analysis)
+- Computer-vs-computer spectator mode (levels 1–9)
+- Full-strength endgame play (ELO limit removed when ≤10 pieces)
+- Draw detection (50-move rule, threefold repetition, insufficient material)
+- Unicode chess piece rendering
 
 ---
 

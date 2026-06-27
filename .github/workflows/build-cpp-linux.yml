@@ -29,7 +29,7 @@ jobs:
       - name: Install Qt6 and build dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y qt6-base-dev cmake ninja-build rpm
+          sudo apt-get install -y qt6-base-dev cmake ninja-build rpm g++
 
       - name: Inject license salt
         run: |
@@ -41,6 +41,19 @@ jobs:
 
       - name: Update version in CMakeLists.txt
         run: sed -i "s/project(Joshua VERSION [0-9.]*/project(Joshua VERSION ${{ steps.version.outputs.version }}/" CMakeLists.txt
+
+      - name: Download Stockfish
+        run: |
+          if [ "${{ matrix.arch }}" = "x64" ]; then
+            curl -sL "https://github.com/official-stockfish/Stockfish/releases/download/sf_18/stockfish-ubuntu-x86-64-sse41-popcnt.tar" | tar xf -
+            cp stockfish/stockfish-ubuntu-x86-64-sse41-popcnt resources/stockfish
+          else
+            # No official arm64 Linux binary - build from source
+            git clone --depth 1 --branch sf_18 https://github.com/official-stockfish/Stockfish.git sf_src
+            cd sf_src/src && make -j$(nproc) build ARCH=armv8 && cd ../..
+            cp sf_src/src/stockfish resources/stockfish
+          fi
+          chmod +x resources/stockfish
 
       - name: Configure and build
         run: |
@@ -63,6 +76,7 @@ jobs:
           mkdir -p ${PKG_DIR}/usr/share/icons/hicolor/256x256/apps
 
           cp build/Joshua ${PKG_DIR}/usr/bin/
+          cp resources/stockfish ${PKG_DIR}/usr/bin/stockfish-joshua
           cp resources/icons/app_icon_256.png ${PKG_DIR}/usr/share/icons/hicolor/256x256/apps/joshua.png
 
           cat > ${PKG_DIR}/usr/share/applications/joshua.desktop << 'DESKTOP'
@@ -101,6 +115,7 @@ jobs:
           mkdir -p rpmbuild/BUILDROOT/joshua-${VERSION}-1.${ARCH}/usr/share/icons/hicolor/256x256/apps
 
           cp build/Joshua rpmbuild/BUILDROOT/joshua-${VERSION}-1.${ARCH}/usr/bin/
+          cp resources/stockfish rpmbuild/BUILDROOT/joshua-${VERSION}-1.${ARCH}/usr/bin/stockfish-joshua
           cp resources/icons/app_icon_256.png rpmbuild/BUILDROOT/joshua-${VERSION}-1.${ARCH}/usr/share/icons/hicolor/256x256/apps/joshua.png
           cp pkg-deb/*/usr/share/applications/joshua.desktop rpmbuild/BUILDROOT/joshua-${VERSION}-1.${ARCH}/usr/share/applications/
 
@@ -118,6 +133,7 @@ jobs:
 
           %files
           /usr/bin/Joshua
+          /usr/bin/stockfish-joshua
           /usr/share/applications/joshua.desktop
           /usr/share/icons/hicolor/256x256/apps/joshua.png
           SPEC

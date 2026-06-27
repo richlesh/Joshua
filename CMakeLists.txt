@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.21)
-project(Joshua VERSION 1.2.0 LANGUAGES CXX)
+project(Joshua VERSION 1.3.0 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -8,6 +8,15 @@ set(CMAKE_AUTORCC ON)
 set(CMAKE_AUTOUIC ON)
 set(CMAKE_AUTOUIC_SEARCH_PATHS ${CMAKE_CURRENT_SOURCE_DIR}/ui)
 
+# AGL.framework removed in Xcode 26 — pre-create WrapOpenGL target without it
+if(APPLE)
+  find_package(OpenGL)
+  if(OpenGL_FOUND AND NOT TARGET WrapOpenGL::WrapOpenGL)
+    add_library(WrapOpenGL::WrapOpenGL INTERFACE IMPORTED)
+    target_link_libraries(WrapOpenGL::WrapOpenGL INTERFACE "-framework OpenGL")
+  endif()
+endif()
+
 find_package(Qt6 REQUIRED COMPONENTS Widgets Core Gui)
 
 set(SOURCES
@@ -15,7 +24,10 @@ set(SOURCES
   src/MainWindow.cpp
   src/TicTacToeWindow.cpp
   src/CheckersWindow.cpp
+  src/CheckersEndgame.cpp
+  src/chinook_db.cpp
   src/FourAcrossWindow.cpp
+  src/ChessWindow.cpp
   src/BouncingProgressBar.cpp
   src/SettingsDialog.cpp
   src/LicenseDialog.cpp
@@ -31,7 +43,10 @@ set(HEADERS
   src/MainWindow.h
   src/TicTacToeWindow.h
   src/CheckersWindow.h
+  src/CheckersEndgame.h
+  src/chinook_db.h
   src/FourAcrossWindow.h
+  src/ChessWindow.h
   src/BouncingProgressBar.h
   src/SettingsDialog.h
   src/LicenseDialog.h
@@ -63,6 +78,11 @@ qt_add_executable(Joshua
 
 target_compile_definitions(Joshua PRIVATE APP_VERSION="${PROJECT_VERSION}")
 target_include_directories(Joshua PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
+
+# Chinook DB code - suppress warnings from legacy code
+set_source_files_properties(src/chinook_db.cpp PROPERTIES
+  COMPILE_FLAGS "-Wno-everything"
+)
 target_link_libraries(Joshua PRIVATE Qt6::Widgets Qt6::Core Qt6::Gui)
 
 set_target_properties(Joshua PROPERTIES
@@ -80,8 +100,37 @@ set_source_files_properties(${APP_ICON}
   PROPERTIES MACOSX_PACKAGE_LOCATION "Resources")
 target_sources(Joshua PRIVATE ${APP_ICON})
 
+# Bundle Chinook endgame database
+set(DB6_ZIP "${CMAKE_CURRENT_SOURCE_DIR}/resources/DB6.zip")
+if(EXISTS ${DB6_ZIP})
+  if(APPLE)
+    set_source_files_properties(${DB6_ZIP}
+      PROPERTIES MACOSX_PACKAGE_LOCATION "Resources")
+    target_sources(Joshua PRIVATE ${DB6_ZIP})
+  elseif(WIN32)
+    add_custom_command(TARGET Joshua POST_BUILD
+      COMMAND ${CMAKE_COMMAND} -E copy_if_different ${DB6_ZIP} $<TARGET_FILE_DIR:Joshua>/DB6.zip)
+  endif()
+endif()
+
 if(WIN32)
   target_sources(Joshua PRIVATE resources/app_icon.rc)
+endif()
+
+# Bundle Stockfish chess engine
+set(STOCKFISH_BIN "${CMAKE_CURRENT_SOURCE_DIR}/resources/stockfish${CMAKE_EXECUTABLE_SUFFIX}")
+if(EXISTS ${STOCKFISH_BIN})
+  if(APPLE)
+    set_source_files_properties(${STOCKFISH_BIN}
+      PROPERTIES MACOSX_PACKAGE_LOCATION "Resources")
+    target_sources(Joshua PRIVATE ${STOCKFISH_BIN})
+    # Ad-hoc sign the bundled binary so macOS allows execution
+    add_custom_command(TARGET Joshua POST_BUILD
+      COMMAND codesign --force --sign - "$<TARGET_BUNDLE_DIR:Joshua>/Contents/Resources/stockfish")
+  elseif(WIN32)
+    add_custom_command(TARGET Joshua POST_BUILD
+      COMMAND ${CMAKE_COMMAND} -E copy_if_different ${STOCKFISH_BIN} $<TARGET_FILE_DIR:Joshua>/stockfish.exe)
+  endif()
 endif()
 
 if(UNIX AND NOT APPLE)
@@ -89,4 +138,15 @@ if(UNIX AND NOT APPLE)
   install(FILES resources/icons/app_icon_256.png DESTINATION share/icons/hicolor/256x256/apps RENAME joshua.png)
   install(FILES resources/Joshua.desktop DESTINATION share/applications)
   install(FILES resources/joshua-mime.xml DESTINATION share/mime/packages)
+  if(EXISTS ${DB6_ZIP})
+    install(FILES ${DB6_ZIP} DESTINATION share/joshua)
+    add_custom_command(TARGET Joshua POST_BUILD
+      COMMAND ${CMAKE_COMMAND} -E copy_if_different ${DB6_ZIP} $<TARGET_FILE_DIR:Joshua>/DB6.zip)
+  endif()
+  if(EXISTS ${STOCKFISH_BIN})
+    install(FILES ${STOCKFISH_BIN} DESTINATION share/joshua
+      PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE GROUP_READ GROUP_EXECUTE WORLD_READ WORLD_EXECUTE)
+    add_custom_command(TARGET Joshua POST_BUILD
+      COMMAND ${CMAKE_COMMAND} -E copy_if_different ${STOCKFISH_BIN} $<TARGET_FILE_DIR:Joshua>/stockfish)
+  endif()
 endif()

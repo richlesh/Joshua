@@ -7,3 +7,5 @@ generate_license_key.py
 src/License.cpp
 license.js
 *.log
+resources/stockfish
+resources/stockfish.exe

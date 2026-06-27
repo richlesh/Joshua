@@ -49,6 +49,20 @@ jobs:
           (Get-Content CMakeLists.txt) -replace 'project\(Joshua VERSION [0-9.]+', "project(Joshua VERSION ${{ steps.version.outputs.version }}" | Set-Content CMakeLists.txt
         shell: powershell
 
+      - name: Download Stockfish
+        run: |
+          if ("${{ matrix.arch }}" -eq "arm64") {
+            $sfUrl = "https://github.com/official-stockfish/Stockfish/releases/download/sf_18/stockfish-windows-armv8.zip"
+            $sfBin = "stockfish/stockfish-windows-armv8.exe"
+          } else {
+            $sfUrl = "https://github.com/official-stockfish/Stockfish/releases/download/sf_18/stockfish-windows-x86-64-sse41-popcnt.zip"
+            $sfBin = "stockfish/stockfish-windows-x86-64-sse41-popcnt.exe"
+          }
+          Invoke-WebRequest -Uri $sfUrl -OutFile stockfish.zip
+          Expand-Archive stockfish.zip -DestinationPath .
+          Copy-Item $sfBin resources/stockfish.exe
+        shell: powershell
+
       - name: Configure and build
         run: |
           $cmakeArch = if ("${{ matrix.arch }}" -eq "arm64") { "ARM64" } else { "x64" }
