@@ -9,7 +9,9 @@
 #include <QFile>
 #include <QDebug>
 #include <sys/stat.h>
+#ifndef _WIN32
 #include <unistd.h>
+#endif
 #include <cstdlib>
 
 static constexpr int8_t B_EMPTY = 0;
