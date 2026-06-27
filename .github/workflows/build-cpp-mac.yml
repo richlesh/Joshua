@@ -82,11 +82,23 @@ jobs:
       - name: Download KataGo
         run: |
           # Build KataGo from source for macOS (no pre-built binaries available)
-          brew install cmake ninja libzip eigen
+          if [ "${{ matrix.arch }}" = "x64" ]; then
+            arch -x86_64 /usr/local/bin/brew install eigen
+          else
+            brew install eigen
+          fi
           git clone --depth 1 --branch v1.16.5 https://github.com/lightvector/KataGo.git katago_src
           cd katago_src/cpp
+          CMAKE_ARCH=${{ matrix.arch == 'arm64' && 'arm64' || 'x86_64' }}
+          if [ "${{ matrix.arch }}" = "x64" ]; then
+            EIGEN_DIR="/usr/local/opt/eigen/share/eigen3/cmake"
+          else
+            EIGEN_DIR="$(brew --prefix eigen)/share/eigen3/cmake"
+          fi
           cmake -S . -B build -G Ninja -DUSE_BACKEND=EIGEN -DCMAKE_BUILD_TYPE=Release \
-            -DCMAKE_OSX_ARCHITECTURES=${{ matrix.arch == 'arm64' && 'arm64' || 'x86_64' }}
+            -DCMAKE_OSX_ARCHITECTURES=${CMAKE_ARCH} \
+            -DNO_GIT_REVISION=1 -DUSE_LIBZIP=0 \
+            -DEigen3_DIR="${EIGEN_DIR}"
           cmake --build build
           cd ../..
           cp katago_src/cpp/build/katago resources/katago
