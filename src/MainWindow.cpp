@@ -8,6 +8,7 @@
 #include "CheckersWindow.h"
 #include "FourAcrossWindow.h"
 #include "ChessWindow.h"
+#include "GoWindow.h"
 #include "SettingsDialog.h"
 #include "AboutDialog.h"
 #include "LicenseDialog.h"
@@ -234,7 +235,11 @@ void MainWindow::handleInput(const QString &line) {
       m_terminal->printText("Nuclear war. A strange game, the only winning move is not to play.\nHow about a nice game of chess?\n\n");
       speak("Nuclear war. A strange game, the only winning move is not to play. How about a nice game of chess?");
       m_terminal->showPrompt("Which game would you like to play? ");
-    } else if (ok && choice >= 5 && choice <= 7) {
+    } else if (ok && choice == 5) {
+      m_terminal->printText("Do you want to go first? ");
+      speak("Do you want to go first?");
+      m_state = GoGoFirstPrompt;
+    } else if (ok && choice >= 6 && choice <= 7) {
       m_terminal->printText("That game is not currently available.\n\n");
       speak("That game is not currently available.");
       m_terminal->showPrompt("Which game would you like to play? ");
@@ -483,6 +488,100 @@ void MainWindow::handleInput(const QString &line) {
       // Map level 1-9 to ELO range 1320-3190
       int humanElo = 1320 + (level - 1) * 234;
       auto *game = new ChessWindow(m_chessUserFirst, m_chessElo, humanElo, nullptr);
+      game->setAttribute(Qt::WA_DeleteOnClose);
+      game->show();
+      m_terminal->printText("\n");
+      m_terminal->showPrompt("Which game would you like to play? ");
+      m_state = GameMenu;
+    } else {
+      m_terminal->printText("Play level for your player (1-9)? ");
+    }
+    break;
+  }
+
+  case GoGoFirstPrompt:
+    if (yesWords.contains(input) || noWords.contains(input)) {
+      m_goUserFirst = yesWords.contains(input);
+      m_terminal->printText("Board size (9, 13, 19)? ");
+      speak("Board size?");
+      m_state = GoBoardSizePrompt;
+    } else {
+      m_terminal->printText("Do you want to go first? ");
+      speak("Do you want to go first?");
+    }
+    break;
+
+  case GoBoardSizePrompt: {
+    int sz = line.trimmed().toInt();
+    if (sz == 9 || sz == 13 || sz == 19) {
+      m_goBoardSize = sz;
+      m_terminal->printText("Difficulty (Really Easy, Easy, Medium, Hard, Expert)? ");
+      speak("Difficulty?");
+      m_state = GoDifficultyPrompt;
+    } else {
+      m_terminal->printText("Board size (9, 13, 19)? ");
+    }
+    break;
+  }
+
+  case GoDifficultyPrompt: {
+    int visits = 0;
+    if (input == "really easy" || input == "re" || input == "r") visits = 1;
+    else if (input == "easy" || input == "e") visits = 10;
+    else if (input == "medium" || input == "m") visits = 100;
+    else if (input == "hard" || input == "h") visits = 500;
+    else if (input == "expert" || input == "ex" || input == "x") visits = 2000;
+    if (visits > 0) {
+      m_goVisits = visits;
+      m_terminal->printText("Do you want the computer to play for you? ");
+      speak("Do you want the computer to play for you?");
+      m_state = GoAutoPlayPrompt;
+    } else {
+      m_terminal->printText("Difficulty (Really Easy, Easy, Medium, Hard, Expert)? ");
+    }
+    break;
+  }
+
+  case GoAutoPlayPrompt:
+    if (yesWords.contains(input) || noWords.contains(input)) {
+      if (yesWords.contains(input)) {
+        m_terminal->printText("Play level for your player (1-9)? ");
+        speak("Play level for your player?");
+        m_state = GoAutoPlayLevel;
+      } else {
+        m_terminal->printText("Do you want computer suggestions? ");
+        speak("Do you want computer suggestions?");
+        m_state = GoSuggestPrompt;
+      }
+    } else {
+      m_terminal->printText("Do you want the computer to play for you? ");
+      speak("Do you want the computer to play for you?");
+    }
+    break;
+
+  case GoSuggestPrompt:
+    if (yesWords.contains(input) || noWords.contains(input)) {
+      m_goSuggest = yesWords.contains(input);
+      auto *game = new GoWindow(m_goUserFirst, m_goVisits, m_goSuggest, m_goBoardSize, nullptr);
+      game->setAttribute(Qt::WA_DeleteOnClose);
+      game->show();
+      m_terminal->printText("\n");
+      m_terminal->showPrompt("Which game would you like to play? ");
+      m_state = GameMenu;
+    } else {
+      m_terminal->printText("Do you want computer suggestions? ");
+      speak("Do you want computer suggestions?");
+    }
+    break;
+
+  case GoAutoPlayLevel: {
+    bool ok;
+    int level = line.trimmed().toInt(&ok);
+    if (ok && level >= 1 && level <= 9) {
+      // Map level 1-9 to visits: 1, 5, 20, 50, 100, 200, 500, 1000, 2000
+      static const int visitMap[] = {1, 5, 20, 50, 100, 200, 500, 1000, 2000};
+      int humanVisits = visitMap[level - 1];
+      auto *game = new GoWindow(m_goUserFirst, m_goVisits, humanVisits, m_goBoardSize, nullptr);
       game->setAttribute(Qt::WA_DeleteOnClose);
       game->show();
       m_terminal->printText("\n");

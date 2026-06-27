@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.21)
-project(Joshua VERSION 1.3.0 LANGUAGES C CXX)
+project(Joshua VERSION 1.4.0 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -28,6 +28,7 @@ set(SOURCES
   src/chinook_db.cpp
   src/FourAcrossWindow.cpp
   src/ChessWindow.cpp
+  src/GoWindow.cpp
   src/BouncingProgressBar.cpp
   src/SettingsDialog.cpp
   src/LicenseDialog.cpp
@@ -47,6 +48,7 @@ set(HEADERS
   src/chinook_db.h
   src/FourAcrossWindow.h
   src/ChessWindow.h
+  src/GoWindow.h
   src/BouncingProgressBar.h
   src/SettingsDialog.h
   src/LicenseDialog.h
@@ -133,6 +135,38 @@ if(EXISTS ${STOCKFISH_BIN})
   endif()
 endif()
 
+# Bundle KataGo Go engine + model + config
+set(KATAGO_BIN "${CMAKE_CURRENT_SOURCE_DIR}/resources/katago${CMAKE_EXECUTABLE_SUFFIX}")
+set(KATAGO_MODEL "${CMAKE_CURRENT_SOURCE_DIR}/resources/katago-model.bin.gz")
+set(KATAGO_CFG "${CMAKE_CURRENT_SOURCE_DIR}/resources/katago-gtp.cfg")
+if(EXISTS ${KATAGO_BIN})
+  if(APPLE)
+    set_source_files_properties(${KATAGO_BIN} PROPERTIES MACOSX_PACKAGE_LOCATION "Resources")
+    target_sources(Joshua PRIVATE ${KATAGO_BIN})
+    add_custom_command(TARGET Joshua POST_BUILD
+      COMMAND codesign --force --sign - "$<TARGET_BUNDLE_DIR:Joshua>/Contents/Resources/katago")
+    if(EXISTS ${KATAGO_MODEL})
+      set_source_files_properties(${KATAGO_MODEL} PROPERTIES MACOSX_PACKAGE_LOCATION "Resources")
+      target_sources(Joshua PRIVATE ${KATAGO_MODEL})
+    endif()
+    if(EXISTS ${KATAGO_CFG})
+      set_source_files_properties(${KATAGO_CFG} PROPERTIES MACOSX_PACKAGE_LOCATION "Resources")
+      target_sources(Joshua PRIVATE ${KATAGO_CFG})
+    endif()
+  elseif(WIN32)
+    add_custom_command(TARGET Joshua POST_BUILD
+      COMMAND ${CMAKE_COMMAND} -E copy_if_different ${KATAGO_BIN} $<TARGET_FILE_DIR:Joshua>/katago.exe)
+    if(EXISTS ${KATAGO_MODEL})
+      add_custom_command(TARGET Joshua POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different ${KATAGO_MODEL} $<TARGET_FILE_DIR:Joshua>/katago-model.bin.gz)
+    endif()
+    if(EXISTS ${KATAGO_CFG})
+      add_custom_command(TARGET Joshua POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different ${KATAGO_CFG} $<TARGET_FILE_DIR:Joshua>/katago-gtp.cfg)
+    endif()
+  endif()
+endif()
+
 if(UNIX AND NOT APPLE)
   install(TARGETS Joshua RUNTIME DESTINATION bin)
   install(FILES resources/icons/app_icon_256.png DESTINATION share/icons/hicolor/256x256/apps RENAME joshua.png)
@@ -148,5 +182,21 @@ if(UNIX AND NOT APPLE)
       PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE GROUP_READ GROUP_EXECUTE WORLD_READ WORLD_EXECUTE)
     add_custom_command(TARGET Joshua POST_BUILD
       COMMAND ${CMAKE_COMMAND} -E copy_if_different ${STOCKFISH_BIN} $<TARGET_FILE_DIR:Joshua>/stockfish)
+  endif()
+  if(EXISTS ${KATAGO_BIN})
+    install(FILES ${KATAGO_BIN} DESTINATION share/joshua
+      PERMISSIONS OWNER_READ OWNER_WRITE OWNER_EXECUTE GROUP_READ GROUP_EXECUTE WORLD_READ WORLD_EXECUTE)
+    add_custom_command(TARGET Joshua POST_BUILD
+      COMMAND ${CMAKE_COMMAND} -E copy_if_different ${KATAGO_BIN} $<TARGET_FILE_DIR:Joshua>/katago)
+    if(EXISTS ${KATAGO_MODEL})
+      install(FILES ${KATAGO_MODEL} DESTINATION share/joshua)
+      add_custom_command(TARGET Joshua POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different ${KATAGO_MODEL} $<TARGET_FILE_DIR:Joshua>/katago-model.bin.gz)
+    endif()
+    if(EXISTS ${KATAGO_CFG})
+      install(FILES ${KATAGO_CFG} DESTINATION share/joshua)
+      add_custom_command(TARGET Joshua POST_BUILD
+        COMMAND ${CMAKE_COMMAND} -E copy_if_different ${KATAGO_CFG} $<TARGET_FILE_DIR:Joshua>/katago-gtp.cfg)
+    endif()
   endif()
 endif()

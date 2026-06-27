@@ -47,7 +47,8 @@ private:
   enum State { LogonPrompt, GreetingPrompt, GameMenu, GoFirstPrompt,
     CheckersGoFirstPrompt, CheckersDifficultyPrompt, CheckersAutoPlayPrompt, CheckersSuggestPrompt, CheckersAutoPlayLevel,
     C4GoFirstPrompt, C4DifficultyPrompt, C4AutoPlayPrompt, C4SuggestPrompt, C4AutoPlayLevel,
-    ChessGoFirstPrompt, ChessDifficultyPrompt, ChessAutoPlayPrompt, ChessSuggestPrompt, ChessAutoPlayLevel };
+    ChessGoFirstPrompt, ChessDifficultyPrompt, ChessAutoPlayPrompt, ChessSuggestPrompt, ChessAutoPlayLevel,
+    GoGoFirstPrompt, GoBoardSizePrompt, GoDifficultyPrompt, GoAutoPlayPrompt, GoSuggestPrompt, GoAutoPlayLevel };
 
   Ui::MainWindow *ui;
   Settings &m_settings;
@@ -63,6 +64,10 @@ private:
   bool m_chessUserFirst = true;
   bool m_chessSuggest = false;
   int m_chessElo = 1500;
+  bool m_goUserFirst = true;
+  bool m_goSuggest = false;
+  int m_goVisits = 100;
+  int m_goBoardSize = 19;
 };
 
 #endif // MAINWINDOW_H

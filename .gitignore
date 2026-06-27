@@ -9,3 +9,7 @@ license.js
 *.log
 resources/stockfish
 resources/stockfish.exe
+resources/katago
+resources/katago.exe
+resources/katago-model.bin.gz
+resources/katago-gtp.cfg

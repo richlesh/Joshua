@@ -1,4 +1,4 @@
-# Joshua v1.3.0
+# Joshua v1.4.0
 
 A WarGames-inspired AI terminal game application.
 
@@ -30,6 +30,14 @@ A WarGames-inspired AI terminal game application.
   - Computer-vs-computer spectator mode with configurable levels
   - Full strength endgame play
   - Draw detection (50-move rule, threefold repetition, insufficient material)
+- Go powered by bundled KataGo engine
+  - Adjustable difficulty (Really Easy, Easy, Medium, Hard, Expert)
+  - Board sizes: 9×9, 13×13, 19×19
+  - Click-to-place stones with hover preview
+  - Computer suggestions highlighting best move
+  - Computer-vs-computer spectator mode with configurable levels
+  - Automatic capture detection
+  - Pass and territory scoring
 - Configurable terminal font size, font color, and background color
 - Text-to-speech for all game prompts (macOS/Windows/Linux)
 - Audio on/off setting
@@ -94,6 +102,7 @@ Joshua/
 │   ├── CheckersWindow.cpp/h  # Checkers game with AI
 │   ├── FourAcrossWindow.cpp/h # Four Across game with AI
 │   ├── ChessWindow.cpp/h     # Chess game with Stockfish AI
+│   ├── GoWindow.cpp/h        # Go game with KataGo AI
 │   ├── Settings.cpp/h       # Settings persistence
 │   ├── SettingsDialog.cpp/h  # Settings UI
 │   ├── LicenseDialog.cpp/h   # License key entry
@@ -150,6 +159,18 @@ Standard chess powered by the bundled [Stockfish](https://stockfishchess.org) en
 - Full-strength endgame play (ELO limit removed when ≤10 pieces)
 - Draw detection (50-move rule, threefold repetition, insufficient material)
 - Unicode chess piece rendering
+
+### Go
+The game of Go powered by the bundled [KataGo](https://github.com/lightvector/KataGo) engine (MIT license) with:
+- GTP protocol communication via QProcess
+- Adjustable difficulty via maxVisits (1–2000)
+- Board sizes: 9×9, 13×13, 19×19
+- Click-to-place stones with hover preview
+- Automatic capture detection (liberty counting)
+- Optional best-move suggestions (full-strength analysis)
+- Computer-vs-computer spectator mode (levels 1–9)
+- Pass detection and territory scoring via engine
+- Star points (hoshi) and last-move marker
 
 ---
 

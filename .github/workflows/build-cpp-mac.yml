@@ -4,7 +4,7 @@ on:
   workflow_dispatch:
     inputs:
       tag:
-        description: "Release tag to upload assets to (e.g. v1.3.0)"
+        description: "Release tag to upload assets to (e.g. v1.4.0)"
         required: true
 
 jobs:
@@ -79,6 +79,33 @@ jobs:
           cp "$SF_BIN" resources/stockfish
           chmod +x resources/stockfish
 
+      - name: Download KataGo
+        run: |
+          # Build KataGo from source for macOS (no pre-built binaries available)
+          brew install cmake ninja libzip
+          git clone --depth 1 --branch v1.16.5 https://github.com/lightvector/KataGo.git katago_src
+          cd katago_src/cpp
+          cmake -S . -B build -G Ninja -DUSE_BACKEND=EIGEN -DCMAKE_BUILD_TYPE=Release \
+            -DCMAKE_OSX_ARCHITECTURES=${{ matrix.arch == 'arm64' && 'arm64' || 'x86_64' }}
+          cmake --build build
+          cd ../..
+          cp katago_src/cpp/build/katago resources/katago
+          chmod +x resources/katago
+          # Download a small but strong model
+          curl -sL "https://media.katagotraining.org/uploaded/networks/models/kata1/kata1-b18c384nbt-s9996604416-d4316597426.bin.gz" \
+            -o resources/katago-model.bin.gz
+          # Create minimal GTP config
+          cat > resources/katago-gtp.cfg << 'GCFG'
+          rules = tromp-taylor
+          allowResignation = true
+          resignThreshold = -0.90
+          resignConsecTurns = 3
+          logDir = /tmp/katago-logs
+          logAllGTPCommunication = false
+          logSearchInfo = false
+          numSearchThreads = 1
+          GCFG
+
       - name: Configure and build
         run: |
           if [ "${{ matrix.arch }}" = "x64" ]; then
@@ -121,6 +148,10 @@ jobs:
           done
           find build/Joshua.app/Contents/PlugIns -type f -name "*.dylib" | while read f; do
             codesign --force --options runtime --sign "$IDENTITY" --timestamp "$f" 2>/dev/null || true
+          done
+          # Sign bundled engine binaries
+          for eng in build/Joshua.app/Contents/Resources/stockfish build/Joshua.app/Contents/Resources/katago; do
+            [ -f "$eng" ] && codesign --force --options runtime --sign "$IDENTITY" --timestamp "$eng"
           done
           codesign --force --deep --options runtime --sign "$IDENTITY" --timestamp build/Joshua.app
 
