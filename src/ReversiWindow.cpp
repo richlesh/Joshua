@@ -216,6 +216,11 @@ static int s_minimax(Board board, int depth, int alpha, int beta, bool maximizin
   int8_t disc = maximizing ? (compIsBlack ? 1 : -1) : (compIsBlack ? -1 : 1);
   auto moves = s_validMoves(board, disc);
 
+  // Move ordering: prioritize corners/edges for better pruning
+  std::sort(moves.begin(), moves.end(), [](int a, int b) {
+    return kWeights[a] > kWeights[b];
+  });
+
   if (depth == 0 || moves.empty()) {
     if (moves.empty()) {
       auto oppMoves = s_validMoves(board, disc == 1 ? -1 : 1);
