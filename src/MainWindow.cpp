@@ -10,6 +10,7 @@
 #include "ChessWindow.h"
 #include "GoWindow.h"
 #include "ReversiWindow.h"
+#include "BlackjackWindow.h"
 #include "SettingsDialog.h"
 #include "AboutDialog.h"
 #include "LicenseDialog.h"
@@ -240,7 +241,14 @@ void MainWindow::handleInput(const QString &line) {
       m_terminal->printText("Do you want to go first? ");
       speak("Do you want to go first?");
       m_state = GoGoFirstPrompt;
-    } else if (ok && choice >= 7 && choice <= 8) {
+    } else if (ok && choice == 7) {
+      auto *game = new BlackjackWindow(nullptr);
+      game->setAttribute(Qt::WA_DeleteOnClose);
+      game->show();
+      m_terminal->printText("\n");
+      m_terminal->showPrompt("Which game would you like to play? ");
+      m_state = GameMenu;
+    } else if (ok && choice == 8) {
       m_terminal->printText("That game is not currently available.\n\n");
       speak("That game is not currently available.");
       m_terminal->showPrompt("Which game would you like to play? ");

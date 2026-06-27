@@ -1,4 +1,4 @@
-# Joshua v1.5.0
+# Joshua v1.6.0
 
 A WarGames-inspired AI terminal game application.
 
@@ -44,6 +44,13 @@ A WarGames-inspired AI terminal game application.
   - Computer-vs-computer spectator mode with configurable levels
   - Automatic capture detection
   - Pass and territory scoring
+- Blackjack with 6-deck shoe
+  - Hit, Stand, Double Down
+  - Adjustable bet ($25–$500 in $25 increments)
+  - Dealer hits on soft 17
+  - Blackjack pays 3:2
+  - Animated dealer card draws
+  - Balance tracking with auto-reset
 - Configurable terminal font size, font color, and background color
 - Text-to-speech for all game prompts (macOS/Windows/Linux)
 - Audio on/off setting
@@ -110,6 +117,7 @@ Joshua/
 │   ├── ChessWindow.cpp/h     # Chess game with Stockfish AI
 │   ├── ReversiWindow.cpp/h   # Reversi game with AI
 │   ├── GoWindow.cpp/h        # Go game with KataGo AI
+│   ├── BlackjackWindow.cpp/h # Blackjack card game
 │   ├── Settings.cpp/h       # Settings persistence
 │   ├── SettingsDialog.cpp/h  # Settings UI
 │   ├── LicenseDialog.cpp/h   # License key entry
