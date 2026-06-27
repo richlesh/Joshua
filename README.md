@@ -1,4 +1,4 @@
-# Joshua v1.4.0
+# Joshua v1.5.0
 
 A WarGames-inspired AI terminal game application.
 
@@ -30,6 +30,12 @@ A WarGames-inspired AI terminal game application.
   - Computer-vs-computer spectator mode with configurable levels
   - Full strength endgame play
   - Draw detection (50-move rule, threefold repetition, insufficient material)
+- Reversi with minimax + alpha-beta pruning AI
+  - Adjustable difficulty (Really Easy, Easy, Medium, Hard, Expert)
+  - Click-to-place with legal move indicators
+  - Animated disc flipping
+  - Computer suggestions highlighting best move
+  - Computer-vs-computer spectator mode with configurable levels
 - Go powered by bundled KataGo engine
   - Adjustable difficulty (Really Easy, Easy, Medium, Hard, Expert)
   - Board sizes: 9×9, 13×13, 19×19
@@ -102,6 +108,7 @@ Joshua/
 │   ├── CheckersWindow.cpp/h  # Checkers game with AI
 │   ├── FourAcrossWindow.cpp/h # Four Across game with AI
 │   ├── ChessWindow.cpp/h     # Chess game with Stockfish AI
+│   ├── ReversiWindow.cpp/h   # Reversi game with AI
 │   ├── GoWindow.cpp/h        # Go game with KataGo AI
 │   ├── Settings.cpp/h       # Settings persistence
 │   ├── SettingsDialog.cpp/h  # Settings UI

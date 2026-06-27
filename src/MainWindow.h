@@ -48,6 +48,7 @@ private:
     CheckersGoFirstPrompt, CheckersDifficultyPrompt, CheckersAutoPlayPrompt, CheckersSuggestPrompt, CheckersAutoPlayLevel,
     C4GoFirstPrompt, C4DifficultyPrompt, C4AutoPlayPrompt, C4SuggestPrompt, C4AutoPlayLevel,
     ChessGoFirstPrompt, ChessDifficultyPrompt, ChessAutoPlayPrompt, ChessSuggestPrompt, ChessAutoPlayLevel,
+    ReversiGoFirstPrompt, ReversiDifficultyPrompt, ReversiAutoPlayPrompt, ReversiSuggestPrompt, ReversiAutoPlayLevel,
     GoGoFirstPrompt, GoBoardSizePrompt, GoDifficultyPrompt, GoAutoPlayPrompt, GoSuggestPrompt, GoAutoPlayLevel };
 
   Ui::MainWindow *ui;
@@ -64,6 +65,9 @@ private:
   bool m_chessUserFirst = true;
   bool m_chessSuggest = false;
   int m_chessElo = 1500;
+  bool m_reversiUserFirst = true;
+  bool m_reversiSuggest = false;
+  int m_reversiDepth = 5;
   bool m_goUserFirst = true;
   bool m_goSuggest = false;
   int m_goVisits = 100;

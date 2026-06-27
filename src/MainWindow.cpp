@@ -9,6 +9,7 @@
 #include "FourAcrossWindow.h"
 #include "ChessWindow.h"
 #include "GoWindow.h"
+#include "ReversiWindow.h"
 #include "SettingsDialog.h"
 #include "AboutDialog.h"
 #include "LicenseDialog.h"
@@ -198,7 +199,7 @@ void MainWindow::handleInput(const QString &line) {
       QTimer::singleShot(5000, qApp, &QApplication::quit);
     } else if (yesWords.contains(input)) {
       m_terminal->printText("\nGame List:\n");
-      m_terminal->printText("1. Tic-Tac-Toe\n2. Checkers\n3. Four Across\n4. Chess\n5. Go\n6. Blackjack\n7. Poker\n8. Global Thermonuclear War\n0. Quit\n\n");
+      m_terminal->printText("1. Tic-Tac-Toe\n2. Checkers\n3. Four Across\n4. Chess\n5. Reversi\n6. Go\n7. Blackjack\n8. Poker\n9. Global Thermonuclear War\n0. Quit\n\n");
       m_terminal->showPrompt("Which game would you like to play? ");
       speak("Which game would you like to play?");
       m_state = GameMenu;
@@ -231,21 +232,25 @@ void MainWindow::handleInput(const QString &line) {
       m_terminal->printText("Do you want to go first? ");
       speak("Do you want to go first?");
       m_state = ChessGoFirstPrompt;
-    } else if (ok && choice == 8) {
-      m_terminal->printText("Nuclear war. A strange game, the only winning move is not to play.\nHow about a nice game of chess?\n\n");
-      speak("Nuclear war. A strange game, the only winning move is not to play. How about a nice game of chess?");
-      m_terminal->showPrompt("Which game would you like to play? ");
     } else if (ok && choice == 5) {
       m_terminal->printText("Do you want to go first? ");
       speak("Do you want to go first?");
+      m_state = ReversiGoFirstPrompt;
+    } else if (ok && choice == 6) {
+      m_terminal->printText("Do you want to go first? ");
+      speak("Do you want to go first?");
       m_state = GoGoFirstPrompt;
-    } else if (ok && choice >= 6 && choice <= 7) {
+    } else if (ok && choice >= 7 && choice <= 8) {
       m_terminal->printText("That game is not currently available.\n\n");
       speak("That game is not currently available.");
       m_terminal->showPrompt("Which game would you like to play? ");
+    } else if (ok && choice == 9) {
+      m_terminal->printText("Nuclear war. A strange game, the only winning move is not to play.\nHow about a nice game of chess?\n\n");
+      speak("Nuclear war. A strange game, the only winning move is not to play. How about a nice game of chess?");
+      m_terminal->showPrompt("Which game would you like to play? ");
     } else {
       m_terminal->printText("\nGame List:\n");
-      m_terminal->printText("1. Tic-Tac-Toe\n2. Checkers\n3. Four Across\n4. Chess\n5. Go\n6. Blackjack\n7. Poker\n8. Global Thermonuclear War\n0. Quit\n\n");
+      m_terminal->printText("1. Tic-Tac-Toe\n2. Checkers\n3. Four Across\n4. Chess\n5. Reversi\n6. Go\n7. Blackjack\n8. Poker\n9. Global Thermonuclear War\n0. Quit\n\n");
       m_terminal->showPrompt("Which game would you like to play? ");
     }
     break;
@@ -488,6 +493,84 @@ void MainWindow::handleInput(const QString &line) {
       // Map level 1-9 to ELO range 1320-3190
       int humanElo = 1320 + (level - 1) * 234;
       auto *game = new ChessWindow(m_chessUserFirst, m_chessElo, humanElo, nullptr);
+      game->setAttribute(Qt::WA_DeleteOnClose);
+      game->show();
+      m_terminal->printText("\n");
+      m_terminal->showPrompt("Which game would you like to play? ");
+      m_state = GameMenu;
+    } else {
+      m_terminal->printText("Play level for your player (1-9)? ");
+    }
+    break;
+  }
+
+  case ReversiGoFirstPrompt:
+    if (yesWords.contains(input) || noWords.contains(input)) {
+      m_reversiUserFirst = yesWords.contains(input);
+      m_terminal->printText("Difficulty (Really Easy, Easy, Medium, Hard, Expert)? ");
+      speak("Difficulty?");
+      m_state = ReversiDifficultyPrompt;
+    } else {
+      m_terminal->printText("Do you want to go first? ");
+      speak("Do you want to go first?");
+    }
+    break;
+
+  case ReversiDifficultyPrompt: {
+    int depth = 0;
+    if (input == "really easy" || input == "re" || input == "r") depth = 1;
+    else if (input == "easy" || input == "e") depth = 3;
+    else if (input == "medium" || input == "m") depth = 5;
+    else if (input == "hard" || input == "h") depth = 7;
+    else if (input == "expert" || input == "ex" || input == "x") depth = 9;
+    if (depth > 0) {
+      m_reversiDepth = depth;
+      m_terminal->printText("Do you want the computer to play for you? ");
+      speak("Do you want the computer to play for you?");
+      m_state = ReversiAutoPlayPrompt;
+    } else {
+      m_terminal->printText("Difficulty (Really Easy, Easy, Medium, Hard, Expert)? ");
+    }
+    break;
+  }
+
+  case ReversiAutoPlayPrompt:
+    if (yesWords.contains(input) || noWords.contains(input)) {
+      if (yesWords.contains(input)) {
+        m_terminal->printText("Play level for your player (1-9)? ");
+        speak("Play level for your player?");
+        m_state = ReversiAutoPlayLevel;
+      } else {
+        m_terminal->printText("Do you want computer suggestions? ");
+        speak("Do you want computer suggestions?");
+        m_state = ReversiSuggestPrompt;
+      }
+    } else {
+      m_terminal->printText("Do you want the computer to play for you? ");
+      speak("Do you want the computer to play for you?");
+    }
+    break;
+
+  case ReversiSuggestPrompt:
+    if (yesWords.contains(input) || noWords.contains(input)) {
+      m_reversiSuggest = yesWords.contains(input);
+      auto *game = new ReversiWindow(m_reversiUserFirst, m_reversiDepth, m_reversiSuggest, nullptr);
+      game->setAttribute(Qt::WA_DeleteOnClose);
+      game->show();
+      m_terminal->printText("\n");
+      m_terminal->showPrompt("Which game would you like to play? ");
+      m_state = GameMenu;
+    } else {
+      m_terminal->printText("Do you want computer suggestions? ");
+      speak("Do you want computer suggestions?");
+    }
+    break;
+
+  case ReversiAutoPlayLevel: {
+    bool ok;
+    int level = line.trimmed().toInt(&ok);
+    if (ok && level >= 1 && level <= 9) {
+      auto *game = new ReversiWindow(m_reversiUserFirst, m_reversiDepth, level, nullptr);
       game->setAttribute(Qt::WA_DeleteOnClose);
       game->show();
       m_terminal->printText("\n");

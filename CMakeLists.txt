@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.21)
-project(Joshua VERSION 1.4.0 LANGUAGES C CXX)
+project(Joshua VERSION 1.5.0 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -29,6 +29,7 @@ set(SOURCES
   src/FourAcrossWindow.cpp
   src/ChessWindow.cpp
   src/GoWindow.cpp
+  src/ReversiWindow.cpp
   src/BouncingProgressBar.cpp
   src/SettingsDialog.cpp
   src/LicenseDialog.cpp
@@ -49,6 +50,7 @@ set(HEADERS
   src/FourAcrossWindow.h
   src/ChessWindow.h
   src/GoWindow.h
+  src/ReversiWindow.h
   src/BouncingProgressBar.h
   src/SettingsDialog.h
   src/LicenseDialog.h
