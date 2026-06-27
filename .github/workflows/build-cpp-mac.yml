@@ -150,9 +150,14 @@ jobs:
             -always-overwrite \
             -no-strip
 
-          # Remove unnecessary plugins
+          # Remove unnecessary plugins and frameworks
           rm -rf build/Joshua.app/Contents/PlugIns/virtualkeyboard
           rm -rf build/Joshua.app/Contents/PlugIns/imageformats
+          rm -rf build/Joshua.app/Contents/Frameworks/QtPdf.framework
+          rm -rf build/Joshua.app/Contents/Frameworks/QtQml*.framework
+          rm -rf build/Joshua.app/Contents/Frameworks/QtQuick*.framework
+          rm -rf build/Joshua.app/Contents/Frameworks/QtNetwork.framework
+          rm -rf build/Joshua.app/Contents/Frameworks/QtOpenGL.framework
 
           # Sign all bundled libraries and frameworks with hardened runtime
           find build/Joshua.app/Contents/Frameworks -type f \( -name "*.dylib" -o -perm +111 \) | while read f; do
