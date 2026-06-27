@@ -12,6 +12,7 @@
 #include "ReversiWindow.h"
 #include "BlackjackWindow.h"
 #include "PokerWindow.h"
+#include "ThermonuclearWarWindow.h"
 #include "SettingsDialog.h"
 #include "AboutDialog.h"
 #include "LicenseDialog.h"
@@ -254,9 +255,12 @@ void MainWindow::handleInput(const QString &line) {
       speak("How many opponents?");
       m_state = PokerOpponentsPrompt;
     } else if (ok && choice == 9) {
-      m_terminal->printText("Nuclear war. A strange game, the only winning move is not to play.\nHow about a nice game of chess?\n\n");
-      speak("Nuclear war. A strange game, the only winning move is not to play. How about a nice game of chess?");
+      auto *game = new ThermonuclearWarWindow(nullptr);
+      game->setAttribute(Qt::WA_DeleteOnClose);
+      game->show();
+      m_terminal->printText("\n");
       m_terminal->showPrompt("Which game would you like to play? ");
+      m_state = GameMenu;
     } else {
       m_terminal->printText("\nGame List:\n");
       m_terminal->printText("1. Tic-Tac-Toe\n2. Checkers\n3. Four Across\n4. Chess\n5. Reversi\n6. Go\n7. Blackjack\n8. Poker\n9. Global Thermonuclear War\n0. Quit\n\n");

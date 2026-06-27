@@ -1,4 +1,4 @@
-# Joshua v1.7.0
+# Joshua v1.8.0
 
 A WarGames-inspired AI terminal game application.
 
@@ -58,6 +58,13 @@ A WarGames-inspired AI terminal game application.
   - Full hand evaluation (High Card through Royal Flush)
   - Fold, Call/Check, Raise actions
   - Rotating dealer with blinds
+- Global Thermonuclear War simulation
+  - Choose side: United States, Soviet Union, or China
+  - World map with Natural Earth coastline data
+  - Select enemy cities to target
+  - Animated missile trajectories with retaliation and counter-strike
+  - Four rounds of futile attempts at different strategies
+  - "The only winning move is not to play"
 - Configurable terminal font size, font color, and background color
 - Text-to-speech for all game prompts (macOS/Windows/Linux)
 - Audio on/off setting

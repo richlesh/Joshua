@@ -1,5 +1,5 @@
 cmake_minimum_required(VERSION 3.21)
-project(Joshua VERSION 1.7.0 LANGUAGES C CXX)
+project(Joshua VERSION 1.8.0 LANGUAGES C CXX)
 
 set(CMAKE_CXX_STANDARD 17)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
@@ -32,6 +32,7 @@ set(SOURCES
   src/ReversiWindow.cpp
   src/BlackjackWindow.cpp
   src/PokerWindow.cpp
+  src/ThermonuclearWarWindow.cpp
   src/BouncingProgressBar.cpp
   src/SettingsDialog.cpp
   src/LicenseDialog.cpp
@@ -55,6 +56,7 @@ set(HEADERS
   src/ReversiWindow.h
   src/BlackjackWindow.h
   src/PokerWindow.h
+  src/ThermonuclearWarWindow.h
   src/BouncingProgressBar.h
   src/SettingsDialog.h
   src/LicenseDialog.h
