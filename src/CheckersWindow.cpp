@@ -2,12 +2,17 @@
 // License: GPL v3.0
 
 #include "CheckersWindow.h"
+#include "CheckersEndgame.h"
 #include <QPainter>
 #include <QMouseEvent>
 #include <QTimer>
 #include <algorithm>
 #include <limits>
 #include <cstdlib>
+#include <thread>
+#include <future>
+#include <atomic>
+#include <mutex>
 
 static const int kSquareSize = 70;
 static const int kBoardSize = 8 * kSquareSize;
@@ -198,6 +203,24 @@ void CheckersWindow::paintEvent(QPaintEvent *) {
     }
   }
 
+  // Draw depth labels
+  if (m_effectiveCompDepth > 0 || m_effectivePlayerDepth > 0) {
+    QFont df = p.font();
+    df.setPixelSize(14);
+    df.setBold(true);
+    p.setFont(df);
+    QString compText = QString("Computer Depth: %1").arg(m_effectiveCompDepth);
+    QString playerText = QString("Player Depth: %1").arg(m_effectivePlayerDepth);
+    // Shadow
+    p.setPen(QColor(0, 0, 0));
+    p.drawText(QRect(1, 5, kBoardSize, 20), Qt::AlignCenter, compText);
+    p.drawText(QRect(1, kBoardSize - 21, kBoardSize, 20), Qt::AlignCenter, playerText);
+    // Foreground
+    p.setPen(QColor(255, 255, 0));
+    p.drawText(QRect(0, 4, kBoardSize, 20), Qt::AlignCenter, compText);
+    p.drawText(QRect(0, kBoardSize - 22, kBoardSize, 20), Qt::AlignCenter, playerText);
+  }
+
   // Flash win/loss message
   if (m_gameOver && m_flashVisible) {
     p.setPen(Qt::NoPen);
@@ -340,10 +363,11 @@ void CheckersWindow::applyMoveWithTracking(const Move &m) {
   int row = m.to / 8;
   bool promoted = (m_board[m.to] == DarkKing && m.kinged) || (m_board[m.to] == LightKing && m.kinged);
 
-  if (captured || promoted)
+  if (captured || promoted) {
     m_movesSinceProgress = 0;
-  else
+  } else {
     m_movesSinceProgress++;
+  }
 
   m_positionHistory.push_back(m_board);
 }
@@ -498,6 +522,349 @@ bool CheckersWindow::hasJumps(bool forDark) {
   return false;
 }
 
+// --- Thread-safe static helpers for parallel search ---
+
+static constexpr int8_t s_Empty = CheckersWindow::Empty;
+
+static bool s_isDark(int8_t p) { return p > 0; }
+static bool s_isLight(int8_t p) { return p < 0; }
+static bool s_isKing(int8_t p) { return p == CheckersWindow::DarkKing || p == CheckersWindow::LightKing; }
+static bool s_onBoard(int r, int c) { return r >= 0 && r < 8 && c >= 0 && c < 8; }
+
+static std::vector<CheckersWindow::Move> s_generatePieceJumps(int pos, std::array<int8_t, 64> &board, std::vector<int> captured) {
+  using Move = CheckersWindow::Move;
+  std::vector<Move> jumps;
+  int r = pos / 8, c = pos % 8;
+  int8_t piece = board[pos];
+
+  std::vector<std::pair<int,int>> dirs;
+  if (piece == CheckersWindow::Dark || piece == CheckersWindow::DarkKing) { dirs.push_back({1, -1}); dirs.push_back({1, 1}); }
+  if (piece == CheckersWindow::Light || piece == CheckersWindow::LightKing) { dirs.push_back({-1, -1}); dirs.push_back({-1, 1}); }
+  if (piece == CheckersWindow::DarkKing) { dirs.push_back({-1, -1}); dirs.push_back({-1, 1}); }
+  if (piece == CheckersWindow::LightKing) { dirs.push_back({1, -1}); dirs.push_back({1, 1}); }
+  std::sort(dirs.begin(), dirs.end());
+  dirs.erase(std::unique(dirs.begin(), dirs.end()), dirs.end());
+
+  for (auto [dr, dc] : dirs) {
+    int mr = r + dr, mc = c + dc;
+    int lr = r + 2 * dr, lc = c + 2 * dc;
+    if (!s_onBoard(lr, lc)) continue;
+    int midIdx = mr * 8 + mc;
+    int landIdx = lr * 8 + lc;
+    if (board[landIdx] != s_Empty) continue;
+    int8_t mid = board[midIdx];
+    if (mid == s_Empty) continue;
+    if (s_isDark(piece) && s_isDark(mid)) continue;
+    if (s_isLight(piece) && s_isLight(mid)) continue;
+    if (std::find(captured.begin(), captured.end(), midIdx) != captured.end()) continue;
+
+    auto newCaptured = captured;
+    newCaptured.push_back(midIdx);
+    bool willKing = (piece == CheckersWindow::Dark && lr == 7) || (piece == CheckersWindow::Light && lr == 0);
+
+    auto savedBoard = board;
+    board[landIdx] = willKing ? (s_isDark(piece) ? CheckersWindow::DarkKing : CheckersWindow::LightKing) : piece;
+    board[pos] = s_Empty;
+    board[midIdx] = s_Empty;
+
+    if (!willKing) {
+      auto further = s_generatePieceJumps(landIdx, board, newCaptured);
+      if (!further.empty()) {
+        for (auto &fj : further) {
+          Move m;
+          m.from = pos;
+          m.to = fj.to;
+          m.captured = newCaptured;
+          for (int fc : fj.captured)
+            if (std::find(m.captured.begin(), m.captured.end(), fc) == m.captured.end())
+              m.captured.push_back(fc);
+          m.kinged = fj.kinged;
+          jumps.push_back(m);
+        }
+        board = savedBoard;
+        continue;
+      }
+    }
+    board = savedBoard;
+
+    Move m;
+    m.from = pos;
+    m.to = landIdx;
+    m.captured = newCaptured;
+    m.kinged = willKing;
+    jumps.push_back(m);
+  }
+  return jumps;
+}
+
+static std::vector<CheckersWindow::Move> s_generatePieceMoves(int pos, std::array<int8_t, 64> &board) {
+  using Move = CheckersWindow::Move;
+  std::vector<Move> moves;
+  int r = pos / 8, c = pos % 8;
+  int8_t piece = board[pos];
+
+  std::vector<std::pair<int,int>> dirs;
+  if (piece == CheckersWindow::Dark || piece == CheckersWindow::DarkKing) { dirs.push_back({1, -1}); dirs.push_back({1, 1}); }
+  if (piece == CheckersWindow::Light || piece == CheckersWindow::LightKing) { dirs.push_back({-1, -1}); dirs.push_back({-1, 1}); }
+  if (piece == CheckersWindow::DarkKing) { dirs.push_back({-1, -1}); dirs.push_back({-1, 1}); }
+  if (piece == CheckersWindow::LightKing) { dirs.push_back({1, -1}); dirs.push_back({1, 1}); }
+  std::sort(dirs.begin(), dirs.end());
+  dirs.erase(std::unique(dirs.begin(), dirs.end()), dirs.end());
+
+  auto jumps = s_generatePieceJumps(pos, board, {});
+  for (auto &j : jumps) moves.push_back(j);
+
+  for (auto [dr, dc] : dirs) {
+    int nr = r + dr, nc = c + dc;
+    if (!s_onBoard(nr, nc)) continue;
+    int nIdx = nr * 8 + nc;
+    if (board[nIdx] == s_Empty) {
+      Move m;
+      m.from = pos;
+      m.to = nIdx;
+      if ((piece == CheckersWindow::Dark && nr == 7) || (piece == CheckersWindow::Light && nr == 0)) m.kinged = true;
+      moves.push_back(m);
+    }
+  }
+  return moves;
+}
+
+static bool s_hasJumps(bool forDark, const std::array<int8_t, 64> &board) {
+  for (int i = 0; i < 64; i++) {
+    int8_t piece = board[i];
+    if (piece == s_Empty) continue;
+    if (forDark && !s_isDark(piece)) continue;
+    if (!forDark && !s_isLight(piece)) continue;
+    auto boardCopy = board;
+    auto jumps = s_generatePieceJumps(i, boardCopy, {});
+    if (!jumps.empty()) return true;
+  }
+  return false;
+}
+
+static std::vector<CheckersWindow::Move> s_generateMoves(bool forDark, const std::array<int8_t, 64> &board) {
+  using Move = CheckersWindow::Move;
+  std::vector<Move> moves;
+  bool jumpsExist = s_hasJumps(forDark, board);
+
+  for (int i = 0; i < 64; i++) {
+    int8_t piece = board[i];
+    if (piece == s_Empty) continue;
+    if (forDark && !s_isDark(piece)) continue;
+    if (!forDark && !s_isLight(piece)) continue;
+    auto boardCopy = board;
+    auto pm = s_generatePieceMoves(i, boardCopy);
+    for (auto &m : pm) {
+      if (jumpsExist && m.captured.empty()) continue;
+      moves.push_back(m);
+    }
+  }
+  return moves;
+}
+
+static void s_applyMove(const CheckersWindow::Move &m, std::array<int8_t, 64> &board) {
+  board[m.to] = board[m.from];
+  board[m.from] = s_Empty;
+  for (int cap : m.captured) board[cap] = s_Empty;
+  int row = m.to / 8;
+  if (board[m.to] == CheckersWindow::Dark && row == 7) board[m.to] = CheckersWindow::DarkKing;
+  if (board[m.to] == CheckersWindow::Light && row == 0) board[m.to] = CheckersWindow::LightKing;
+}
+
+static int s_evaluate(const std::array<int8_t, 64> &board, bool compIsDark) {
+  int compMen = 0, compKings = 0, oppMen = 0, oppKings = 0;
+  int compPositional = 0, oppPositional = 0;
+
+  // First pass: count material
+  for (int i = 0; i < 64; i++) {
+    int8_t p = board[i];
+    if (p == s_Empty) continue;
+    bool isComp = (compIsDark && s_isDark(p)) || (!compIsDark && s_isLight(p));
+    if (s_isKing(p)) { if (isComp) compKings++; else oppKings++; }
+    else { if (isComp) compMen++; else oppMen++; }
+  }
+
+  int compTotal = compMen + compKings;
+  int oppTotal = oppMen + oppKings;
+  int totalPieces = compTotal + oppTotal;
+  bool isEndgame = totalPieces <= 8;
+  bool isLateEndgame = totalPieces <= 5;
+
+  // Second pass: positional scoring
+  for (int i = 0; i < 64; i++) {
+    int8_t p = board[i];
+    if (p == s_Empty) continue;
+    int r = i / 8, c = i % 8;
+    bool isComp = (compIsDark && s_isDark(p)) || (!compIsDark && s_isLight(p));
+    int val = 0;
+
+    if (!s_isKing(p)) {
+      val = 100;
+      // Advancement bonus
+      int advance = s_isDark(p) ? r : (7 - r);
+      val += advance * 10;
+
+      // Back rank defense: pieces on home row protect against promotion
+      if (!isEndgame) {
+        bool onHomeRank = (s_isDark(p) && r == 0) || (s_isLight(p) && r == 7);
+        if (onHomeRank) val += 15;
+      }
+
+      // Runaway piece detection: unblockable path to promotion
+      if (isEndgame) {
+        int promoRow = s_isDark(p) ? 7 : 0;
+        int distToPromo = std::abs(promoRow - r);
+        bool runaway = true;
+        int dir = s_isDark(p) ? 1 : -1;
+        for (int step = 1; step <= distToPromo && runaway; step++) {
+          int checkR = r + dir * step;
+          // Opponent must be closer or at same diagonal to block
+          for (int j = 0; j < 64; j++) {
+            int8_t q = board[j];
+            if (q == s_Empty) continue;
+            if (s_isDark(p) == s_isDark(q)) continue;
+            int qr = j / 8;
+            int oppDistToIntercept = std::abs(qr - checkR);
+            int ourDist = step;
+            if (oppDistToIntercept < ourDist) { runaway = false; break; }
+            // Kings can move any direction
+            if (s_isKing(q) && std::abs(qr - checkR) + std::abs(j % 8 - c) <= step * 2) {
+              runaway = false; break;
+            }
+          }
+        }
+        if (runaway && distToPromo <= 4) val += (5 - distToPromo) * 40;
+      }
+    } else {
+      // King
+      val = 300;
+
+      int centerDist = std::abs(r - 3) + std::abs(c - 3);
+      bool allKings = (compMen == 0 && oppMen == 0);
+
+      if (isComp) {
+        // Computer king: pursue opponent pieces aggressively
+        int minDist = 14;
+        for (int j = 0; j < 64; j++) {
+          int8_t q = board[j];
+          if (q == s_Empty) continue;
+          if (s_isDark(p) == s_isDark(q)) continue;
+          int dist = std::abs(r - j / 8) + std::abs(c - j % 8);
+          if (dist < minDist) minDist = dist;
+        }
+        if (minDist < 14) {
+          int pursuitBonus = allKings ? 25 : (isLateEndgame ? 15 : (isEndgame ? 8 : 5));
+          val += (14 - minDist) * pursuitBonus;
+        }
+        // Center control for the computer's kings (better mobility)
+        if (isEndgame) val += (7 - centerDist) * (allKings ? 15 : 5);
+      } else {
+        // Opponent king: heavily penalize edges/corners (trapped = losing)
+        if (isEndgame) {
+          // Distance from center = bad for opponent
+          int edgePenalty = allKings ? 40 : 15;
+          val -= centerDist * edgePenalty;
+
+          bool onEdge = (r == 0 || r == 7 || c == 0 || c == 7);
+          bool inCorner = ((r == 0 || r == 7) && (c == 0 || c == 7));
+          bool inDoubleCorner = (r == 0 && c == 1) || (r == 0 && c == 7) ||
+                                (r == 7 && c == 0) || (r == 7 && c == 6);
+          if (allKings) {
+            if (inCorner) val -= 150;
+            else if (inDoubleCorner) val -= 100;
+            else if (onEdge) val -= 60;
+          } else {
+            if (inCorner) val -= 40;
+            else if (onEdge) val -= 20;
+          }
+        }
+      }
+    }
+
+    if (isComp) compPositional += val;
+    else oppPositional += val;
+  }
+
+  int score = compPositional - oppPositional;
+
+  // Material advantage amplifier: when ahead, incentivize trades
+  int materialDiff = (compMen + compKings * 3) - (oppMen + oppKings * 3);
+  if (materialDiff > 0 && isEndgame) score += materialDiff * 20;
+
+  // Winning bonus: heavily reward positions where opponent has few pieces
+  if (oppTotal == 1 && compTotal >= 2) score += 500;
+  if (oppTotal == 0) score += 10000;
+  if (compTotal == 0) score -= 10000;
+
+  return score;
+}
+
+static int s_minimax(std::array<int8_t, 64> board, int depth, int alpha, int beta, bool maximizing, bool compIsDark) {
+  // Probe Chinook endgame database for perfect play with few pieces
+  if (CheckersEndgame::instance().isChinookReady()) {
+    int pc = 0;
+    for (int i = 0; i < 64; i++) if (board[i] != s_Empty) pc++;
+    if (pc >= 2 && pc <= 6) {
+      bool darkToMove = maximizing ? compIsDark : !compIsDark;
+      auto result = CheckersEndgame::instance().probe(board, darkToMove);
+      if (result != CheckersEndgame::UNKNOWN) {
+        // DRAW: return immediately
+        if (result == CheckersEndgame::DRAW) return 0;
+        // LOSS for side to move: avoid this line
+        if (result == CheckersEndgame::LOSS)
+          return maximizing ? -(9000 + depth) : (9000 + depth);
+        // WIN for side to move: only use as leaf eval; otherwise let search
+        // continue so positional evaluation guides toward trapping/capturing.
+        if (result == CheckersEndgame::WIN && depth == 0) {
+          int eval = s_evaluate(board, compIsDark);
+          // Boost eval to ensure it's clearly winning but preserve relative ordering
+          return maximizing ? std::max(eval, 5000) : std::min(eval, -5000);
+        }
+      }
+    }
+  }
+
+  if (depth == 0) return s_evaluate(board, compIsDark);
+
+  if (maximizing) {
+    auto moves = s_generateMoves(compIsDark, board);
+    if (moves.empty()) return -10000;
+    std::sort(moves.begin(), moves.end(), [](const CheckersWindow::Move &a, const CheckersWindow::Move &b) {
+      if (!a.captured.empty() != !b.captured.empty()) return !a.captured.empty();
+      return a.captured.size() > b.captured.size();
+    });
+    int maxEval = std::numeric_limits<int>::min();
+    for (auto &mv : moves) {
+      auto child = board;
+      s_applyMove(mv, child);
+      int eval = s_minimax(child, depth - 1, alpha, beta, false, compIsDark);
+      maxEval = std::max(maxEval, eval);
+      alpha = std::max(alpha, eval);
+      if (beta <= alpha) break;
+    }
+    return maxEval;
+  } else {
+    auto moves = s_generateMoves(!compIsDark, board);
+    if (moves.empty()) return 10000;
+    std::sort(moves.begin(), moves.end(), [](const CheckersWindow::Move &a, const CheckersWindow::Move &b) {
+      if (!a.captured.empty() != !b.captured.empty()) return !a.captured.empty();
+      return a.captured.size() > b.captured.size();
+    });
+    int minEval = std::numeric_limits<int>::max();
+    for (auto &mv : moves) {
+      auto child = board;
+      s_applyMove(mv, child);
+      int eval = s_minimax(child, depth - 1, alpha, beta, true, compIsDark);
+      minEval = std::min(minEval, eval);
+      beta = std::min(beta, eval);
+      if (beta <= alpha) break;
+    }
+    return minEval;
+  }
+}
+
+// --- End thread-safe helpers ---
+
 void CheckersWindow::computerMove() {
   if (m_gameOver) return;
   setCursor(Qt::WaitCursor);
@@ -523,30 +890,69 @@ void CheckersWindow::computerMove() {
   int bestScore = std::numeric_limits<int>::min();
   std::vector<int> scores;
 
-  for (auto &mv : moves) {
-    auto saved = m_board;
-    applyMove(mv);
-    bool isHumanProxy = m_autoPlay && (movingDark != m_userIsLight);
-    int searchDepth = isHumanProxy ? m_humanDepth : m_depth;
+  int pieceCount = 0;
+  for (int i = 0; i < 64; i++)
+    if (m_board[i] != Empty) pieceCount++;
+
+  // If the endgame DB covers this position, use it for perfect play
+  bool dbCovers = (pieceCount <= 6 && CheckersEndgame::instance().isChinookReady());
+  m_effectiveCompDepth = m_depth;
+  m_effectivePlayerDepth = m_autoPlay ? m_humanDepth : m_depth;
+
+  bool compIsDark = movingDark;
+
+  // Parallel YBWC root search: first move sequential, rest in parallel
+  std::sort(moves.begin(), moves.end(), [](const Move &a, const Move &b) {
+    if (!a.captured.empty() != !b.captured.empty()) return !a.captured.empty();
+    return a.captured.size() > b.captured.size();
+  });
+
+  auto boardSnapshot = m_board;
+  bool isHumanProxy = m_autoPlay && (movingDark != m_userIsLight);
+  int searchDepth = isHumanProxy ? m_humanDepth : m_depth;
+
+  // Search first move sequentially for a good bound
+  {
+    auto child = boardSnapshot;
+    s_applyMove(moves[0], child);
     int score;
-    if (isHumanProxy) {
-      score = -minimax(searchDepth, std::numeric_limits<int>::min(), std::numeric_limits<int>::max(), true);
-    } else {
-      score = minimax(searchDepth, std::numeric_limits<int>::min(), std::numeric_limits<int>::max(), false);
-    }
-    m_board = saved;
+    if (isHumanProxy)
+      score = -s_minimax(child, searchDepth, std::numeric_limits<int>::min(), std::numeric_limits<int>::max(), true, !compIsDark);
+    else
+      score = s_minimax(child, searchDepth, std::numeric_limits<int>::min(), std::numeric_limits<int>::max(), false, compIsDark);
     scores.push_back(score);
-    if (score > bestScore) {
-      bestScore = score;
-      bestMove = mv;
+    bestScore = score;
+  }
+
+  // Search remaining moves in parallel
+  if (moves.size() > 1) {
+    std::vector<std::future<int>> futures;
+    for (size_t i = 1; i < moves.size(); i++) {
+      futures.push_back(std::async(std::launch::async, [&, i]() {
+        auto child = boardSnapshot;
+        s_applyMove(moves[i], child);
+        if (isHumanProxy)
+          return -s_minimax(child, searchDepth, std::numeric_limits<int>::min(), std::numeric_limits<int>::max(), true, !compIsDark);
+        else
+          return s_minimax(child, searchDepth, std::numeric_limits<int>::min(), std::numeric_limits<int>::max(), false, compIsDark);
+      }));
+    }
+    for (auto &f : futures)
+      scores.push_back(f.get());
+  }
+
+  for (size_t i = 0; i < scores.size(); i++) {
+    if (scores[i] > bestScore) {
+      bestScore = scores[i];
+      bestMove = moves[i];
     }
   }
 
-  // Pick randomly among moves within a small margin of best to avoid repetition
+  // Only randomize among truly equal moves (not "close" moves)
   std::vector<size_t> topIndices;
   for (size_t i = 0; i < scores.size(); i++)
-    if (scores[i] >= bestScore - 10) topIndices.push_back(i);
-  if (!topIndices.empty())
+    if (scores[i] == bestScore) topIndices.push_back(i);
+  if (topIndices.size() > 1)
     bestMove = moves[topIndices[rand() % topIndices.size()]];
 
   unsetCursor();
@@ -642,10 +1048,11 @@ void CheckersWindow::advanceAnimation() {
       // Draw tracking
       bool captured = !m_animMove.captured.empty();
       bool promoted = (m_board[m_animMove.to] == DarkKing || m_board[m_animMove.to] == LightKing) && m_animMove.kinged;
-      if (captured || promoted)
+      if (captured || promoted) {
         m_movesSinceProgress = 0;
-      else
+      } else {
         m_movesSinceProgress++;
+      }
       m_positionHistory.push_back(m_board);
 
       m_userTurn = !m_autoPlay;
@@ -669,6 +1076,11 @@ int CheckersWindow::minimax(int depth, int alpha, int beta, bool maximizing) {
   if (maximizing) {
     auto moves = generateMoves(compIsDark);
     if (moves.empty()) return -10000;
+    // Move ordering: try captures first, then sort by quick eval
+    std::sort(moves.begin(), moves.end(), [&](const Move &a, const Move &b) {
+      if (!a.captured.empty() != !b.captured.empty()) return !a.captured.empty();
+      return a.captured.size() > b.captured.size();
+    });
     int maxEval = std::numeric_limits<int>::min();
     for (auto &mv : moves) {
       auto saved = m_board;
@@ -683,6 +1095,10 @@ int CheckersWindow::minimax(int depth, int alpha, int beta, bool maximizing) {
   } else {
     auto moves = generateMoves(!compIsDark);
     if (moves.empty()) return 10000;
+    std::sort(moves.begin(), moves.end(), [&](const Move &a, const Move &b) {
+      if (!a.captured.empty() != !b.captured.empty()) return !a.captured.empty();
+      return a.captured.size() > b.captured.size();
+    });
     int minEval = std::numeric_limits<int>::max();
     for (auto &mv : moves) {
       auto saved = m_board;
@@ -698,38 +1114,31 @@ int CheckersWindow::minimax(int depth, int alpha, int beta, bool maximizing) {
 }
 
 int CheckersWindow::evaluate() {
-  // Positive = good for computer, negative = good for user
+  // Delegate to static version for consistency
   bool compIsDark = m_userIsLight;
-  int score = 0;
-  for (int i = 0; i < 64; i++) {
-    int8_t p = m_board[i];
-    if (p == Empty) continue;
-    int val = 0;
-    if (p == Dark || p == Light) val = 100;
-    else val = 175; // kings worth more
-
-    // Positional bonus: advance toward promotion
-    int r = i / 8;
-    if (p == Dark) val += r * 5;
-    if (p == Light) val += (7 - r) * 5;
-
-    if ((compIsDark && isDark(p)) || (!compIsDark && isLight(p)))
-      score += val;
-    else
-      score -= val;
-  }
-  return score;
+  return s_evaluate(m_board, compIsDark);
 }
 
 void CheckersWindow::checkGameOver() {
   bool compIsDark = m_userIsLight;
   bool userIsDark = !m_userIsLight;
 
-  auto userMoves = generateMoves(userIsDark);
-  auto compMoves = generateMoves(compIsDark);
+  if (m_autoPlay) {
+    // In auto-play, check if the next side to move (m_darkTurn) has moves
+    auto nextMoves = generateMoves(m_darkTurn);
+    if (nextMoves.empty()) {
+      // The side that just moved wins (opposite of m_darkTurn)
+      bool darkJustMoved = !m_darkTurn;
+      endGame(darkJustMoved == userIsDark); // "YOU WIN" if the human-proxy side won
+      return;
+    }
+  } else {
+    auto userMoves = generateMoves(userIsDark);
+    auto compMoves = generateMoves(compIsDark);
 
-  if (m_userTurn && userMoves.empty()) { endGame(false); return; }
-  if (!m_userTurn && compMoves.empty()) { endGame(true); return; }
+    if (m_userTurn && userMoves.empty()) { endGame(false); return; }
+    if (!m_userTurn && compMoves.empty()) { endGame(true); return; }
+  }
 
   // Draw: 80 half-moves without progress
   if (m_movesSinceProgress >= 80) { endDraw(); return; }
@@ -769,19 +1178,47 @@ void CheckersWindow::computeSuggestion() {
   auto moves = generateMoves(userIsDark);
   if (moves.empty()) return;
 
+  // Sort for better move ordering
+  std::sort(moves.begin(), moves.end(), [](const Move &a, const Move &b) {
+    if (!a.captured.empty() != !b.captured.empty()) return !a.captured.empty();
+    return a.captured.size() > b.captured.size();
+  });
+
+  auto boardSnapshot = m_board;
+  bool compIsDark = !userIsDark; // from user's perspective, computer is the opponent
+
   Move bestMove = moves[0];
   int bestScore = std::numeric_limits<int>::min();
 
-  for (auto &mv : moves) {
-    auto saved = m_board;
-    applyMove(mv);
-    int score = -minimax(9, std::numeric_limits<int>::min(), std::numeric_limits<int>::max(), true);
-    m_board = saved;
-    if (score > bestScore) {
-      bestScore = score;
-      bestMove = mv;
+  // Search first move sequentially
+  {
+    auto child = boardSnapshot;
+    s_applyMove(moves[0], child);
+    bestScore = -s_minimax(child, 9, std::numeric_limits<int>::min(), std::numeric_limits<int>::max(), true, compIsDark);
+  }
+
+  // Search remaining in parallel
+  if (moves.size() > 1) {
+    std::vector<std::future<int>> futures;
+    for (size_t i = 1; i < moves.size(); i++) {
+      futures.push_back(std::async(std::launch::async, [&, i]() {
+        auto child = boardSnapshot;
+        s_applyMove(moves[i], child);
+        return -s_minimax(child, 9, std::numeric_limits<int>::min(), std::numeric_limits<int>::max(), true, compIsDark);
+      }));
+    }
+    std::vector<int> scores;
+    scores.push_back(bestScore);
+    for (auto &f : futures)
+      scores.push_back(f.get());
+    for (size_t i = 1; i < scores.size(); i++) {
+      if (scores[i] > bestScore) {
+        bestScore = scores[i];
+        bestMove = moves[i];
+      }
     }
   }
+
   m_suggestedFrom = bestMove.from;
   m_suggestedTo = bestMove.to;
   unsetCursor();

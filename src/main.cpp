@@ -7,10 +7,14 @@
 #include <QPalette>
 #include <QStyle>
 #include <QIcon>
+#include <QMessageBox>
+#include <QTimer>
+#include <thread>
 #include "MainWindow.h"
 #include "SplashScreen.h"
 #include "Settings.h"
 #include "LicenseValidator.h"
+#include "CheckersEndgame.h"
 
 class Application : public QApplication {
 public:
@@ -94,6 +98,54 @@ int main(int argc, char *argv[]) {
   MainWindow mainWindow(settings, licensed);
   app.mainWindow = &mainWindow;
   mainWindow.show();
+
+  // Build endgame database in background thread
+  std::thread([&mainWindow]() {
+    // If Chinook DB is already cached, load it then notify
+    if (CheckersEndgame::instance().chinookCached()) {
+      CheckersEndgame::instance().loadChinook();
+      if (CheckersEndgame::instance().isChinookReady()) {
+        QMetaObject::invokeMethod(&mainWindow, [&mainWindow]() {
+          QMessageBox::information(&mainWindow,
+            "Endgame Database Loaded",
+            "The Chinook 6-piece endgame database is now active.");
+        }, Qt::QueuedConnection);
+      }
+    }
+  }).detach();
+
+  // After window is shown, prompt user to download Chinook DB if not already cached
+  QTimer::singleShot(500, &mainWindow, [&mainWindow]() {
+    if (CheckersEndgame::instance().isChinookReady()) return;
+    if (CheckersEndgame::instance().chinookCached()) return;
+
+    auto reply = QMessageBox::question(&mainWindow,
+      "Download Endgame Database",
+      "Would you like to download the Chinook 6-piece endgame database?\n\n"
+      "This enables perfect play in all positions with 6 or fewer pieces.\n"
+      "Download size: ~450 MB\n\n"
+      "The download will happen in the background.",
+      QMessageBox::Yes | QMessageBox::No, QMessageBox::Yes);
+
+    if (reply == QMessageBox::Yes) {
+      std::thread([&mainWindow]() {
+        CheckersEndgame::instance().loadChinook();
+        QMetaObject::invokeMethod(&mainWindow, [&mainWindow]() {
+          if (CheckersEndgame::instance().isChinookReady()) {
+            QMessageBox::information(&mainWindow,
+              "Endgame Database Ready",
+              "The Chinook 6-piece endgame database has been downloaded and is now active.\n\n"
+              "The checkers engine now has perfect play for all positions with 6 or fewer pieces.");
+          } else {
+            QMessageBox::warning(&mainWindow,
+              "Download Failed",
+              "Failed to download the endgame database.\n"
+              "Please check your internet connection and try again later.");
+          }
+        }, Qt::QueuedConnection);
+      }).detach();
+    }
+  });
 
   return app.exec();
 }

@@ -15,13 +15,6 @@ public:
   explicit CheckersWindow(bool userFirst, int depth, bool suggest, QWidget *parent = nullptr);
   explicit CheckersWindow(bool userFirst, int compDepth, int humanDepth, QWidget *parent = nullptr); // computer vs computer
 
-protected:
-  void paintEvent(QPaintEvent *event) override;
-  void mousePressEvent(QMouseEvent *event) override;
-  void mouseMoveEvent(QMouseEvent *event) override;
-  void mouseReleaseEvent(QMouseEvent *event) override;
-
-private:
   enum Piece : int8_t { Empty = 0, Dark = 1, DarkKing = 2, Light = -1, LightKing = -2 };
 
   struct Move {
@@ -31,6 +24,13 @@ private:
     bool kinged = false;
   };
 
+protected:
+  void paintEvent(QPaintEvent *event) override;
+  void mousePressEvent(QMouseEvent *event) override;
+  void mouseMoveEvent(QMouseEvent *event) override;
+  void mouseReleaseEvent(QMouseEvent *event) override;
+
+private:
   // Board: 8x8, indexed row*8+col. Only dark squares (row+col odd) used.
   std::array<int8_t, 64> m_board{};
 
@@ -44,6 +44,8 @@ private:
   int m_humanDepth = 5;
   int m_suggestedFrom = -1;
   int m_suggestedTo = -1;
+  int m_effectiveCompDepth = 0;
+  int m_effectivePlayerDepth = 0;
   int m_flashCount = 0;
   bool m_flashVisible = false;
   bool m_userWon = false;
