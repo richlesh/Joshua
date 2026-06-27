@@ -60,9 +60,9 @@ private:
   // Pot and betting
   int m_pot = 0;
   int m_currentBet = 0;
-  int m_minRaise = 20;
-  int m_smallBlind = 10;
-  int m_bigBlind = 20;
+  int m_minRaise = 25;
+  int m_smallBlind = 25;
+  int m_bigBlind = 50;
   int m_numActed = 0; // how many players have acted this betting round
 
   // Round state
@@ -80,7 +80,7 @@ private:
   QPushButton *m_dealBtn;
   QPushButton *m_raiseUpBtn;
   QPushButton *m_raiseDownBtn;
-  int m_raiseAmount = 40;
+  int m_raiseAmount = 25;
 
   // Card sprite sheet
   QPixmap m_cardSheet;

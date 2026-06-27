@@ -51,11 +51,11 @@ PokerWindow::PokerWindow(int numOpponents, QWidget *parent) : QWidget(parent) {
   connect(m_raiseBtn, &QPushButton::clicked, this, &PokerWindow::onRaise);
   connect(m_dealBtn, &QPushButton::clicked, this, &PokerWindow::onDeal);
   connect(m_raiseDownBtn, &QPushButton::clicked, this, [this]() {
-    if (m_raiseAmount > m_bigBlind) { m_raiseAmount -= m_bigBlind; updateButtons(); }
+    if (m_raiseAmount > 25) { m_raiseAmount -= 25; updateButtons(); }
   });
   connect(m_raiseUpBtn, &QPushButton::clicked, this, [this]() {
     int maxRaise = m_players[0].chips - (m_currentBet - m_players[0].currentBet);
-    if (m_raiseAmount + m_bigBlind <= maxRaise) { m_raiseAmount += m_bigBlind; updateButtons(); }
+    if (m_raiseAmount + 25 <= maxRaise) { m_raiseAmount += 25; updateButtons(); }
   });
   connect(&m_aiTimer, &QTimer::timeout, this, [this]() {
     m_aiTimer.stop();
@@ -160,8 +160,12 @@ void PokerWindow::startBettingRound() {
   if (m_phase != PreFlop) {
     // Start from first active player after dealer
     int i = (m_dealerIdx + 1) % m_numPlayers;
-    while (m_players[i].folded || m_players[i].allIn || m_players[i].chips <= 0)
+    int attempts = 0;
+    while ((m_players[i].folded || m_players[i].allIn || m_players[i].chips <= 0) && attempts < m_numPlayers) {
       i = (i + 1) % m_numPlayers;
+      attempts++;
+    }
+    if (attempts >= m_numPlayers) { nextPhase(); return; } // everyone all-in or folded
     m_currentPlayer = i;
   }
   advanceToNextPlayer();
@@ -177,9 +181,12 @@ void PokerWindow::advanceToNextPlayer() {
   if (bettingComplete()) { nextPhase(); update(); return; }
 
   // Skip folded/all-in players
-  while (m_players[m_currentPlayer].folded || m_players[m_currentPlayer].allIn) {
+  int attempts = 0;
+  while ((m_players[m_currentPlayer].folded || m_players[m_currentPlayer].allIn) && attempts < m_numPlayers) {
     m_currentPlayer = (m_currentPlayer + 1) % m_numPlayers;
+    attempts++;
   }
+  if (attempts >= m_numPlayers) { nextPhase(); return; }
 
   updateButtons();
   update();
@@ -233,7 +240,7 @@ void PokerWindow::aiAction() {
   int decision = aiDecide(m_currentPlayer);
   if (decision == 0) playerAction(m_currentPlayer, 0);
   else if (decision == 1) playerAction(m_currentPlayer, 1);
-  else playerAction(m_currentPlayer, 2, m_bigBlind * (1 + m_rng() % 3));
+  else playerAction(m_currentPlayer, 2, 25 * (1 + m_rng() % 4)); // $25-$100 in $25 increments
 }
 
 int PokerWindow::aiDecide(int playerIdx) {
@@ -436,11 +443,13 @@ void PokerWindow::updateButtons() {
   m_raiseBtn->setVisible(canRaise);
   m_raiseDownBtn->setVisible(canRaise);
   m_raiseUpBtn->setVisible(canRaise);
-  m_dealBtn->setVisible(!m_roundActive);
+  m_dealBtn->setVisible(!m_roundActive && m_players[0].chips > 0);
 
   if (humanTurn) {
     int toCall = m_currentBet - m_players[0].currentBet;
     m_callBtn->setText(toCall > 0 ? QString("Call $%1").arg(toCall) : "Check");
+    int maxRaise = m_players[0].chips - toCall;
+    if (m_raiseAmount > maxRaise) m_raiseAmount = std::max(25, maxRaise);
     m_raiseBtn->setText(QString("Raise $%1").arg(m_raiseAmount));
   }
 }
@@ -634,6 +643,6 @@ void PokerWindow::paintEvent(QPaintEvent *) {
     QFont gf; gf.setPixelSize(24); gf.setBold(true);
     p.setFont(gf);
     p.setPen(Qt::red);
-    p.drawText(QRect(0, 350, kWinW, 40), Qt::AlignCenter, "You're out of chips! Press Deal to restart.");
+    p.drawText(QRect(0, 350, kWinW, 40), Qt::AlignCenter, "You're bust! Out of chips.");
   }
 }

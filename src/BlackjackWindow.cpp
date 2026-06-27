@@ -121,7 +121,13 @@ QString BlackjackWindow::cardStr(const Card &c) const {
 // --- Actions ---
 
 void BlackjackWindow::onDeal() {
-  if (m_balance <= 0) { m_balance = 1000; m_bet = 100; } // reset if broke
+  if (m_balance <= 0) {
+    m_resultText = "You're bust! Out of chips.";
+    m_state = RoundOver;
+    updateButtons();
+    update();
+    return;
+  }
   if (m_bet > m_balance) m_bet = m_balance;
   if (m_bet < 25) m_bet = 25;
   m_playerHand.clear();
