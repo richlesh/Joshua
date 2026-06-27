@@ -84,9 +84,11 @@ target_compile_definitions(Joshua PRIVATE APP_VERSION="${PROJECT_VERSION}")
 target_include_directories(Joshua PRIVATE ${CMAKE_CURRENT_SOURCE_DIR}/src)
 
 # Chinook DB code - suppress warnings from legacy code
-set_source_files_properties(src/chinook_db.cpp PROPERTIES
-  COMPILE_FLAGS "-Wno-everything"
-)
+if(MSVC)
+  set_source_files_properties(src/chinook_db.cpp PROPERTIES COMPILE_FLAGS "/w")
+else()
+  set_source_files_properties(src/chinook_db.cpp PROPERTIES COMPILE_FLAGS "-Wno-everything")
+endif()
 target_link_libraries(Joshua PRIVATE Qt6::Widgets Qt6::Core Qt6::Gui)
 
 set_target_properties(Joshua PROPERTIES
