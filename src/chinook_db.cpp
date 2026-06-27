@@ -10,9 +10,11 @@
 #include <cstdio>
 #include <cstdlib>
 #include <cstring>
+#ifndef _WIN32
 #include <fcntl.h>
 #include <unistd.h>
 #include <sys/mman.h>
+#endif
 #include <sys/stat.h>
 
 #ifndef O_BINARY
@@ -573,6 +575,18 @@ int chinook_init(const char *db_dir) {
     }
 
     /* mmap the database file */
+#ifdef _WIN32
+    FILE *dbfp = fopen(dbPath("DB6"), "rb");
+    if (!dbfp) return 0;
+    fseek(dbfp, 0, SEEK_END);
+    g_DBSize = (size_t)ftell(dbfp);
+    fseek(dbfp, 0, SEEK_SET);
+    void *mapped = malloc(g_DBSize);
+    if (!mapped) { fclose(dbfp); return 0; }
+    fread(mapped, 1, g_DBSize, dbfp);
+    fclose(dbfp);
+    g_DBData = (const unsigned char *)mapped;
+#else
     int fd = open(dbPath("DB6"), O_RDONLY);
     if (fd < 0) return 0;
 
@@ -584,6 +598,7 @@ int chinook_init(const char *db_dir) {
     close(fd);
     if (mapped == MAP_FAILED) return 0;
     g_DBData = (const unsigned char *)mapped;
+#endif
 
     int32_t blocks = (int32_t)(g_DBSize / DISK_BLOCK);
     g_MaxBlock = blocks++;
