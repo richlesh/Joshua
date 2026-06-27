@@ -11,6 +11,7 @@
 #include "GoWindow.h"
 #include "ReversiWindow.h"
 #include "BlackjackWindow.h"
+#include "PokerWindow.h"
 #include "SettingsDialog.h"
 #include "AboutDialog.h"
 #include "LicenseDialog.h"
@@ -249,9 +250,9 @@ void MainWindow::handleInput(const QString &line) {
       m_terminal->showPrompt("Which game would you like to play? ");
       m_state = GameMenu;
     } else if (ok && choice == 8) {
-      m_terminal->printText("That game is not currently available.\n\n");
-      speak("That game is not currently available.");
-      m_terminal->showPrompt("Which game would you like to play? ");
+      m_terminal->printText("How many opponents (3-5)? ");
+      speak("How many opponents?");
+      m_state = PokerOpponentsPrompt;
     } else if (ok && choice == 9) {
       m_terminal->printText("Nuclear war. A strange game, the only winning move is not to play.\nHow about a nice game of chess?\n\n");
       speak("Nuclear war. A strange game, the only winning move is not to play. How about a nice game of chess?");
@@ -680,6 +681,22 @@ void MainWindow::handleInput(const QString &line) {
       m_state = GameMenu;
     } else {
       m_terminal->printText("Play level for your player (1-9)? ");
+    }
+    break;
+  }
+
+  case PokerOpponentsPrompt: {
+    bool ok;
+    int num = line.trimmed().toInt(&ok);
+    if (ok && num >= 3 && num <= 5) {
+      auto *game = new PokerWindow(num, nullptr);
+      game->setAttribute(Qt::WA_DeleteOnClose);
+      game->show();
+      m_terminal->printText("\n");
+      m_terminal->showPrompt("Which game would you like to play? ");
+      m_state = GameMenu;
+    } else {
+      m_terminal->printText("How many opponents (3-5)? ");
     }
     break;
   }

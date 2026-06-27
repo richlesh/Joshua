@@ -49,7 +49,8 @@ private:
     C4GoFirstPrompt, C4DifficultyPrompt, C4AutoPlayPrompt, C4SuggestPrompt, C4AutoPlayLevel,
     ChessGoFirstPrompt, ChessDifficultyPrompt, ChessAutoPlayPrompt, ChessSuggestPrompt, ChessAutoPlayLevel,
     ReversiGoFirstPrompt, ReversiDifficultyPrompt, ReversiAutoPlayPrompt, ReversiSuggestPrompt, ReversiAutoPlayLevel,
-    GoGoFirstPrompt, GoBoardSizePrompt, GoDifficultyPrompt, GoAutoPlayPrompt, GoSuggestPrompt, GoAutoPlayLevel };
+    GoGoFirstPrompt, GoBoardSizePrompt, GoDifficultyPrompt, GoAutoPlayPrompt, GoSuggestPrompt, GoAutoPlayLevel,
+    PokerOpponentsPrompt };
 
   Ui::MainWindow *ui;
   Settings &m_settings;

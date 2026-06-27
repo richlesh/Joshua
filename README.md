@@ -1,4 +1,4 @@
-# Joshua v1.6.0
+# Joshua v1.7.0
 
 A WarGames-inspired AI terminal game application.
 
@@ -22,6 +22,12 @@ A WarGames-inspired AI terminal game application.
   - Hover-to-select column with animated piece drop
   - Computer suggestions highlighting best column
   - Computer-vs-computer spectator mode with configurable levels
+- Reversi with minimax + alpha-beta pruning AI
+  - Adjustable difficulty (Really Easy, Easy, Medium, Hard, Expert)
+  - Click-to-place with legal move indicators
+  - Animated disc flipping
+  - Computer suggestions highlighting best move
+  - Computer-vs-computer spectator mode with configurable levels
 - Chess powered by bundled Stockfish engine
   - Adjustable difficulty (Really Easy, Easy, Medium, Hard, Expert)
   - Drag-and-drop piece movement
@@ -30,12 +36,6 @@ A WarGames-inspired AI terminal game application.
   - Computer-vs-computer spectator mode with configurable levels
   - Full strength endgame play
   - Draw detection (50-move rule, threefold repetition, insufficient material)
-- Reversi with minimax + alpha-beta pruning AI
-  - Adjustable difficulty (Really Easy, Easy, Medium, Hard, Expert)
-  - Click-to-place with legal move indicators
-  - Animated disc flipping
-  - Computer suggestions highlighting best move
-  - Computer-vs-computer spectator mode with configurable levels
 - Go powered by bundled KataGo engine
   - Adjustable difficulty (Really Easy, Easy, Medium, Hard, Expert)
   - Board sizes: 9×9, 13×13, 19×19
@@ -51,6 +51,13 @@ A WarGames-inspired AI terminal game application.
   - Blackjack pays 3:2
   - Animated dealer card draws
   - Balance tracking with auto-reset
+- Texas Hold'em Poker with heuristic AI
+  - 5 players (you + 4 AI opponents)
+  - Pre-flop, flop, turn, river betting rounds
+  - AI uses hand strength, pot odds, and bluffing
+  - Full hand evaluation (High Card through Royal Flush)
+  - Fold, Call/Check, Raise actions
+  - Rotating dealer with blinds
 - Configurable terminal font size, font color, and background color
 - Text-to-speech for all game prompts (macOS/Windows/Linux)
 - Audio on/off setting
@@ -118,6 +125,7 @@ Joshua/
 │   ├── ReversiWindow.cpp/h   # Reversi game with AI
 │   ├── GoWindow.cpp/h        # Go game with KataGo AI
 │   ├── BlackjackWindow.cpp/h # Blackjack card game
+│   ├── PokerWindow.cpp/h    # Texas Hold'em poker
 │   ├── Settings.cpp/h       # Settings persistence
 │   ├── SettingsDialog.cpp/h  # Settings UI
 │   ├── LicenseDialog.cpp/h   # License key entry
