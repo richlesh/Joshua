@@ -82,7 +82,7 @@ jobs:
       - name: Download KataGo
         run: |
           # Build KataGo from source for macOS (no pre-built binaries available)
-          brew install cmake ninja libzip
+          brew install cmake ninja libzip eigen
           git clone --depth 1 --branch v1.16.5 https://github.com/lightvector/KataGo.git katago_src
           cd katago_src/cpp
           cmake -S . -B build -G Ninja -DUSE_BACKEND=EIGEN -DCMAKE_BUILD_TYPE=Release \

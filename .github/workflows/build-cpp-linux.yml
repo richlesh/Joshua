@@ -63,7 +63,7 @@ jobs:
             mv resources/katago resources/katago-bin && mv resources/katago-bin resources/katago
           else
             # Build from source for arm64
-            sudo apt-get install -y libzip-dev
+            sudo apt-get install -y libzip-dev libeigen3-dev
             git clone --depth 1 --branch v1.16.5 https://github.com/lightvector/KataGo.git katago_src
             cd katago_src/cpp && cmake -S . -B build -G Ninja -DUSE_BACKEND=EIGEN -DCMAKE_BUILD_TYPE=Release && cmake --build build && cd ../..
             cp katago_src/cpp/build/katago resources/katago
