@@ -98,10 +98,13 @@ static void speak(const QString &text) {
   if (voice.isEmpty()) voice = "en";
   args << "-v" << voice;
   args << text;
-  // Try espeak-ng first, fall back to espeak
-  proc->start("espeak-ng", args);
+  // Try espeak-ng with full path, fall back to espeak
+  proc->start("/usr/bin/espeak-ng", args);
   if (!proc->waitForStarted(500)) {
-    proc->start("espeak", args);
+    proc->start("/usr/bin/espeak", args);
+    if (!proc->waitForStarted(500)) {
+      proc->start("espeak-ng", args); // try PATH as last resort
+    }
   }
 #endif
 }
