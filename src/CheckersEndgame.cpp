@@ -89,10 +89,15 @@ bool CheckersEndgame::downloadChinookDB() {
       return true;
   }
 
-  // Fall back to curl download
+  // Fall back to curl/wget download
   std::string url = "https://webdocs.cs.ualberta.ca/~chinook/DataBases/DB6.zip";
   std::string cmd = "curl -sL -o \"" + zipPath + "\" \"" + url + "\"";
   int ret = system(cmd.c_str());
+  if (ret != 0) {
+    // Try wget as fallback (common on Debian)
+    cmd = "wget -q -O \"" + zipPath + "\" \"" + url + "\"";
+    ret = system(cmd.c_str());
+  }
   if (ret != 0) return false;
 
   if (stat(zipPath.c_str(), &st) != 0 || st.st_size < 20000000)
@@ -113,6 +118,11 @@ bool CheckersEndgame::extractChinookDB() {
 
   std::string cmd = "unzip -o -q \"" + zipPath + "\" -d \"" + dir + "\"";
   int ret = system(cmd.c_str());
+  if (ret != 0) {
+    // Fallback: use python3 zipfile module (available on most systems)
+    cmd = "python3 -m zipfile -e \"" + zipPath + "\" \"" + dir + "\"";
+    ret = system(cmd.c_str());
+  }
   if (ret != 0) return false;
 
   unlink(zipPath.c_str());
