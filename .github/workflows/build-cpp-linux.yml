@@ -117,6 +117,7 @@ jobs:
           Terminal=false
           Type=Application
           Categories=Game;
+          StartupWMClass=Joshua
           DESKTOP
 
           cat > ${PKG_DIR}/DEBIAN/control << CTRL
@@ -165,6 +166,13 @@ jobs:
           /usr/bin/stockfish-joshua
           /usr/share/applications/joshua.desktop
           /usr/share/icons/hicolor/256x256/apps/joshua.png
+
+          %post
+          /usr/bin/gtk-update-icon-cache /usr/share/icons/hicolor &>/dev/null || :
+          /usr/bin/update-desktop-database /usr/share/applications &>/dev/null || :
+
+          %postun
+          /usr/bin/gtk-update-icon-cache /usr/share/icons/hicolor &>/dev/null || :
           SPEC
 
           rpmbuild --define "_topdir $(pwd)/rpmbuild" \
