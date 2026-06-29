@@ -6,8 +6,9 @@
 
 #include <QIcon>
 #include <QPixmap>
+#include <QString>
 
 QPixmap roundedPixmap(const QPixmap &src, int radius);
 QIcon themedIcon(const QString &path);
-
+void speak(const QString &text);
 #endif // UTILITIES_H
