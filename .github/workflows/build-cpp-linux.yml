@@ -29,7 +29,7 @@ jobs:
       - name: Install Qt6 and build dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y qt6-base-dev cmake ninja-build rpm g++
+          sudo apt-get install -y qt6-base-dev cmake ninja-build rpm g++ libgl1-mesa-dev libglu1-mesa-dev
 
       - name: Inject license salt
         run: |
