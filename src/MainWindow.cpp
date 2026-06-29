@@ -94,23 +94,15 @@ static void speak(const QString &text) {
     "$s.SelectVoice('%1'); $s.Speak('%2')").arg(voice, QString(text).replace("'", "''"));
   proc->start("powershell", {"-Command", "Add-Type -AssemblyName System.Speech; " + voiceSelect});
 #else
-  auto *check = new QProcess;
-  check->start("which", {"espeak-ng"});
-  check->waitForFinished(500);
-  if (check->exitCode() == 0) {
-    QStringList args;
-    if (voice.isEmpty()) voice = "en";
-    args << "-v" << voice;
-    args << text;
-    proc->start("espeak-ng", args);
-  } else {
-    QStringList args;
-    if (voice.isEmpty()) voice = "en";
-    args << "-v" << voice;
-    args << text;
+  QStringList args;
+  if (voice.isEmpty()) voice = "en";
+  args << "-v" << voice;
+  args << text;
+  // Try espeak-ng first, fall back to espeak
+  proc->start("espeak-ng", args);
+  if (!proc->waitForStarted(500)) {
     proc->start("espeak", args);
   }
-  delete check;
 #endif
 }
 
