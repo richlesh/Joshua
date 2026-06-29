@@ -14,6 +14,7 @@
 #include "PokerWindow.h"
 #include "ThermonuclearWarWindow.h"
 #include "SettingsDialog.h"
+#include "Utilities.h"
 #include "AboutDialog.h"
 #include "LicenseDialog.h"
 #include <QApplication>
@@ -77,37 +78,6 @@ static const QStringList yesWords = {"yes", "y", "sure", "ok", "okay", "yep", "y
 static const QStringList noWords = {"no", "n", "nope", "nah", "non", "nein", "nie", "nej", "ei"};
 
 static Settings *s_settings = nullptr;
-
-static void speak(const QString &text) {
-  if (s_settings && !s_settings->audioEnabled()) return;
-  auto *proc = new QProcess;
-  proc->connect(proc, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished), proc, &QProcess::deleteLater);
-  QString voice = (s_settings && !s_settings->voiceName().isEmpty()) ? s_settings->voiceName() : QString();
-#ifdef Q_OS_MACOS
-  QStringList args;
-  args << "-v" << (voice.isEmpty() ? "Fred" : voice) << text;
-  proc->start("say", args);
-#elif defined(Q_OS_WIN)
-  QString voiceSelect;
-  if (voice.isEmpty()) voice = "Microsoft David Desktop";
-  voiceSelect = QString("$s = New-Object System.Speech.Synthesis.SpeechSynthesizer; "
-    "$s.SelectVoice('%1'); $s.Speak('%2')").arg(voice, QString(text).replace("'", "''"));
-  proc->start("powershell", {"-Command", "Add-Type -AssemblyName System.Speech; " + voiceSelect});
-#else
-  QStringList args;
-  if (voice.isEmpty()) voice = "en";
-  args << "-v" << voice;
-  args << text;
-  // Try espeak-ng with full path, fall back to espeak
-  proc->start("/usr/bin/espeak-ng", args);
-  if (!proc->waitForStarted(500)) {
-    proc->start("/usr/bin/espeak", args);
-    if (!proc->waitForStarted(500)) {
-      proc->start("espeak-ng", args); // try PATH as last resort
-    }
-  }
-#endif
-}
 
 MainWindow::MainWindow(Settings &settings, bool licensed, QWidget *parent)
   : QMainWindow(parent), ui(new Ui::MainWindow), m_settings(settings), m_licensed(licensed) {
