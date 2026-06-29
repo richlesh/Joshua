@@ -104,13 +104,6 @@ int main(int argc, char *argv[]) {
     // If Chinook DB is already cached, load it then notify
     if (CheckersEndgame::instance().chinookCached()) {
       CheckersEndgame::instance().loadChinook();
-      if (CheckersEndgame::instance().isChinookReady()) {
-        QMetaObject::invokeMethod(&mainWindow, [&mainWindow]() {
-          QMessageBox::information(&mainWindow,
-            "Endgame Database Loaded",
-            "The Chinook 6-piece endgame database is now active.");
-        }, Qt::QueuedConnection);
-      }
     }
   }).detach();
 
@@ -121,7 +114,7 @@ int main(int argc, char *argv[]) {
 
     auto reply = QMessageBox::question(&mainWindow,
       "Download Endgame Database",
-      "Would you like to download the Chinook 6-piece endgame database?\n\n"
+      "Would you like to download the Chinook 6-piece checkers endgame database?\n\n"
       "This enables perfect play in all positions with 6 or fewer pieces.\n"
       "Download size: ~450 MB\n\n"
       "The download will happen in the background.",
@@ -134,7 +127,7 @@ int main(int argc, char *argv[]) {
           if (CheckersEndgame::instance().isChinookReady()) {
             QMessageBox::information(&mainWindow,
               "Endgame Database Ready",
-              "The Chinook 6-piece endgame database has been downloaded and is now active.\n\n"
+              "The Chinook 6-piece checkers endgame database has been downloaded and is now active.\n\n"
               "The checkers engine now has perfect play for all positions with 6 or fewer pieces.");
           } else {
             QMessageBox::warning(&mainWindow,

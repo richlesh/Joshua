@@ -4,6 +4,7 @@
 #include "ThermonuclearWarWindow.h"
 #include "WorldCoastline.h"
 #include "Settings.h"
+#include "Utilities.h"
 #include <QPainter>
 #include <QMouseEvent>
 #include <QKeyEvent>
@@ -269,6 +270,7 @@ void ThermonuclearWarWindow::advanceAnimation() {
         if (settings.audioEnabled()) {
           auto *proc = new QProcess(this);
           proc->connect(proc, QOverload<int, QProcess::ExitStatus>::of(&QProcess::finished), proc, &QProcess::deleteLater);
+/*
 #ifdef Q_OS_MACOS
           proc->start("say", {"-v", "Fred", "A strange game. The only winning move is not to play. How about a nice game of chess?"});
 #elif defined(Q_OS_WIN)
@@ -276,6 +278,8 @@ void ThermonuclearWarWindow::advanceAnimation() {
 #else
           proc->start("espeak-ng", {"-v", "en", "A strange game. The only winning move is not to play. How about a nice game of chess?"});
 #endif
+*/
+          speak("A strange game. The only winning move is not to play. How about a nice game of chess?");
         }
       } else {
         // Reset for another round - same side
