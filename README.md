@@ -1,3 +1,5 @@
+![app_icon_256](resources/icons/app_icon_256.png)
+
 # Joshua v1.8.0
 
 A WarGames-inspired AI terminal game application.
