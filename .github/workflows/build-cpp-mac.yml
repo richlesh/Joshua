@@ -13,12 +13,22 @@ on:
 
 jobs:
   build-cpp-mac:
-    runs-on: macos-latest
+    # Each architecture builds natively on its own runner — macos-latest is now
+    # Apple Silicon, where Homebrew refuses to install the Intel prefix under
+    # Rosetta ("only supported on Apple Silicon processors"), so the old
+    # `arch -x86_64` cross-build no longer works. arm64 builds on Apple Silicon;
+    # x64 builds on the Intel image (macos-15-intel, available until Aug 2027).
+    runs-on: ${{ matrix.runner }}
     permissions:
       contents: write
     strategy:
+      fail-fast: false
       matrix:
-        arch: [x64, arm64]
+        include:
+          - arch: arm64
+            runner: macos-14
+          - arch: x64
+            runner: macos-15-intel
 
     steps:
       - name: Checkout
@@ -35,12 +45,9 @@ jobs:
 
       - name: Install Qt6
         run: |
-          if [ "${{ matrix.arch }}" = "x64" ]; then
-            arch -x86_64 /bin/bash -c "$(curl -fsSL https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh)"
-            arch -x86_64 /usr/local/bin/brew install qt@6 cmake ninja
-          else
-            brew install qt@6 cmake ninja
-          fi
+          # Native Homebrew on each runner (Intel prefix /usr/local on
+          # macos-15-intel, /opt/homebrew on Apple Silicon). No Rosetta.
+          brew install qt@6 cmake ninja
 
       - name: Import Developer ID certificate
         id: cert
@@ -89,19 +96,11 @@ jobs:
       - name: Download KataGo
         run: |
           # Build KataGo from source for macOS (no pre-built binaries available)
-          if [ "${{ matrix.arch }}" = "x64" ]; then
-            arch -x86_64 /usr/local/bin/brew install eigen
-          else
-            brew install eigen
-          fi
+          brew install eigen
           git clone --depth 1 --branch v1.16.5 https://github.com/lightvector/KataGo.git katago_src
           cd katago_src/cpp
           CMAKE_ARCH=${{ matrix.arch == 'arm64' && 'arm64' || 'x86_64' }}
-          if [ "${{ matrix.arch }}" = "x64" ]; then
-            EIGEN_DIR="/usr/local/opt/eigen/share/eigen3/cmake"
-          else
-            EIGEN_DIR="$(brew --prefix eigen)/share/eigen3/cmake"
-          fi
+          EIGEN_DIR="$(brew --prefix eigen)/share/eigen3/cmake"
           cmake -S . -B build -G Ninja -DUSE_BACKEND=EIGEN -DCMAKE_BUILD_TYPE=Release \
             -DCMAKE_OSX_ARCHITECTURES=${CMAKE_ARCH} \
             -DNO_GIT_REVISION=1 -DUSE_LIBZIP=0 \
@@ -127,11 +126,7 @@ jobs:
 
       - name: Configure and build
         run: |
-          if [ "${{ matrix.arch }}" = "x64" ]; then
-            QT_PREFIX="/usr/local/opt/qt@6"
-          else
-            QT_PREFIX="$(brew --prefix qt@6)"
-          fi
+          QT_PREFIX="$(brew --prefix qt@6)"
           CMAKE_ARCH=${{ matrix.arch == 'arm64' && 'arm64' || 'x86_64' }}
           cmake -S . -B build -G Ninja \
             -DCMAKE_BUILD_TYPE=Release \
@@ -144,11 +139,7 @@ jobs:
           APPLE_TEAM_ID: MMZ3Y97NTP
           IDENTITY: ${{ steps.cert.outputs.hash }}
         run: |
-          if [ "${{ matrix.arch }}" = "x64" ]; then
-            MACDEPLOYQT="/usr/local/opt/qt@6/bin/macdeployqt"
-          else
-            MACDEPLOYQT="$(brew --prefix qt@6)/bin/macdeployqt"
-          fi
+          MACDEPLOYQT="$(brew --prefix qt@6)/bin/macdeployqt"
           ARCH=${{ matrix.arch }}
           VERSION=${{ steps.version.outputs.version }}
 
