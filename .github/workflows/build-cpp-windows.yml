@@ -138,7 +138,7 @@ jobs:
           @"
           !include "MUI2.nsh"
           Name "Joshua ${version}"
-          OutFile "dist\Joshua-${version}-${arch}-setup.exe"
+          OutFile "dist\Joshua-${version}-${arch}-Setup.exe"
           InstallDir "`$PROGRAMFILES\Joshua"
           RequestExecutionLevel admin
 
