@@ -1,10 +1,14 @@
 name: Build and Release C++ Windows
 
 on:
+  # Fires automatically when the Release workflow publishes a new release.
+  release:
+    types: [published]
+  # Still runnable by hand against an existing tag.
   workflow_dispatch:
     inputs:
       tag:
-        description: "Release tag to upload assets to (e.g. v1.8.0)"
+        description: "Release tag to upload assets to (e.g. 1.8.0)"
         required: true
 
 jobs:
@@ -21,10 +25,13 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v5
 
-      - name: Extract version from tag
+      - name: Resolve version/tag
         id: version
         run: |
-          $ver = "${{ github.event.inputs.tag }}" -replace '^v', ''
+          $raw = "${{ github.event.release.tag_name }}"
+          if (-not $raw) { $raw = "${{ github.event.inputs.tag }}" }
+          $ver = $raw -replace '^v', ''
+          echo "tag=$ver" >> $env:GITHUB_OUTPUT
           echo "version=$ver" >> $env:GITHUB_OUTPUT
         shell: powershell
 
@@ -189,6 +196,6 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh release upload ${{ github.event.inputs.tag }} `
+          gh release upload ${{ steps.version.outputs.tag }} `
             (Get-ChildItem dist\*.exe | Select-Object -ExpandProperty FullName) --clobber
         shell: powershell

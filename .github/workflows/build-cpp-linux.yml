@@ -1,10 +1,14 @@
 name: Build and Release C++ Linux
 
 on:
+  # Fires automatically when the Release workflow publishes a new release.
+  release:
+    types: [published]
+  # Still runnable by hand against an existing tag.
   workflow_dispatch:
     inputs:
       tag:
-        description: "Release tag to upload assets to (e.g. v1.8.0)"
+        description: "Release tag to upload assets to (e.g. 1.8.0)"
         required: true
 
 jobs:
@@ -20,11 +24,12 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v5
 
-      - name: Extract version from tag
+      - name: Resolve version/tag
         id: version
-        run: echo "version=${TAG#v}" >> $GITHUB_OUTPUT
-        env:
-          TAG: ${{ github.event.inputs.tag }}
+        run: |
+          RAW="${{ github.event.release.tag_name || github.event.inputs.tag }}"
+          echo "tag=${RAW#v}" >> "$GITHUB_OUTPUT"
+          echo "version=${RAW#v}" >> "$GITHUB_OUTPUT"
 
       - name: Install Qt6 and build dependencies
         run: |
@@ -185,5 +190,5 @@ jobs:
         env:
           GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         run: |
-          gh release upload ${{ github.event.inputs.tag }} \
+          gh release upload ${{ steps.version.outputs.tag }} \
             dist/*.deb dist/*.rpm --clobber

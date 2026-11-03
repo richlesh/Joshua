@@ -1,0 +1,75 @@
+name: Release
+
+# Version-driven releases for Joshua (C++/Qt). The single source of truth is the
+# `project(Joshua VERSION X.Y.Z ...)` line in CMakeLists.txt. When that version
+# is bumped to a value with no matching release yet, this workflow creates the
+# tag (the bare version, e.g. 1.8.1 — no leading "v") and a GitHub release.
+#
+# Publishing that release fires the three platform build workflows
+# (build-cpp-mac / -windows / -linux via `on: release: published`), which build
+# and upload their signed artifacts to it. Pushing a commit whose CMakeLists
+# version already has a release is a no-op.
+
+on:
+  push:
+    branches: [main]
+    paths:
+      - "CMakeLists.txt"
+  workflow_dispatch: {}
+
+permissions:
+  contents: write
+
+jobs:
+  create-release:
+    name: Create tag and release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Read version from CMakeLists.txt
+        id: ver
+        run: |
+          set -euo pipefail
+          # Pull X.Y.Z from: project(Joshua VERSION X.Y.Z LANGUAGES ...)
+          VERSION="$(grep -Eo 'project\(Joshua VERSION [0-9]+\.[0-9]+\.[0-9]+' CMakeLists.txt \
+            | grep -Eo '[0-9]+\.[0-9]+\.[0-9]+' | head -1)"
+          if [ -z "$VERSION" ]; then
+            echo "::error::Could not parse version from CMakeLists.txt."
+            exit 1
+          fi
+          echo "version=$VERSION" >> "$GITHUB_OUTPUT"
+          echo "CMakeLists version: $VERSION"
+
+      - name: Create tag and release if new
+        env:
+          TAG: ${{ steps.ver.outputs.version }}
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          if gh release view "$TAG" >/dev/null 2>&1; then
+            echo "Release $TAG already exists — nothing to do."
+            exit 0
+          fi
+
+          git config user.name "github-actions[bot]"
+          git config user.email "github-actions[bot]@users.noreply.github.com"
+
+          # Create + push the bare tag (no leading "v") if absent.
+          if git ls-remote --exit-code --tags origin "refs/tags/$TAG" >/dev/null 2>&1; then
+            echo "Tag $TAG already exists on origin; reusing it."
+          else
+            git tag -a "$TAG" -m "Release $TAG"
+            git push origin "$TAG"
+            echo "Created and pushed tag $TAG."
+          fi
+
+          # Publishing this release triggers the platform build workflows, which
+          # upload their artifacts to it.
+          gh release create "$TAG" \
+            --title "Joshua $TAG" \
+            --notes "Automated release for version $TAG." \
+            --target "$GITHUB_SHA"
