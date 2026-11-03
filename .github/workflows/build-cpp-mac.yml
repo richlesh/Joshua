@@ -99,6 +99,13 @@ jobs:
           brew install eigen
           git clone --depth 1 --branch v1.16.5 https://github.com/lightvector/KataGo.git katago_src
           cd katago_src/cpp
+          # macOS libc++ declares quick_exit() with `using_if_exists` but does
+          # not actually provide the symbol, so KataGo's `quick_exit(EXIT_FAILURE)`
+          # in Global::fatalError fails to compile ("reference to unresolved using
+          # declaration"). Substitute the always-available std::exit — this is a
+          # fatal-error abort path, so the (minor) at_quick_exit-vs-atexit
+          # cleanup difference is irrelevant.
+          sed -i '' 's/quick_exit(EXIT_FAILURE)/std::exit(EXIT_FAILURE)/g' core/global.cpp
           CMAKE_ARCH=${{ matrix.arch == 'arm64' && 'arm64' || 'x86_64' }}
           EIGEN_DIR="$(brew --prefix eigen)/share/eigen3/cmake"
           cmake -S . -B build -G Ninja -DUSE_BACKEND=EIGEN -DCMAKE_BUILD_TYPE=Release \
