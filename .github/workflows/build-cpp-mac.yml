@@ -104,8 +104,17 @@ jobs:
           # in Global::fatalError fails to compile ("reference to unresolved using
           # declaration"). Substitute the always-available std::exit — this is a
           # fatal-error abort path, so the (minor) at_quick_exit-vs-atexit
-          # cleanup difference is irrelevant.
-          sed -i '' 's/quick_exit(EXIT_FAILURE)/std::exit(EXIT_FAILURE)/g' core/global.cpp
+          # cleanup difference is irrelevant. Verify the patch actually applied so
+          # a future source change can't silently fall back to the broken original.
+          echo "quick_exit occurrences before patch:"
+          grep -n 'quick_exit' core/global.cpp || true
+          sed -i '' 's/quick_exit(/std::exit(/g' core/global.cpp
+          if grep -q 'quick_exit(' core/global.cpp; then
+            echo "::error::Failed to patch quick_exit in KataGo core/global.cpp"
+            grep -n 'quick_exit(' core/global.cpp
+            exit 1
+          fi
+          echo "Patched core/global.cpp — quick_exit( -> std::exit("
           CMAKE_ARCH=${{ matrix.arch == 'arm64' && 'arm64' || 'x86_64' }}
           EIGEN_DIR="$(brew --prefix eigen)/share/eigen3/cmake"
           cmake -S . -B build -G Ninja -DUSE_BACKEND=EIGEN -DCMAKE_BUILD_TYPE=Release \
